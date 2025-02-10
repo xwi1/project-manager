@@ -1,0 +1,9 @@
+/* Глобальные стили для <router-link> */
+.router-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.router-link:hover {
+    text-decoration: none;
+}
