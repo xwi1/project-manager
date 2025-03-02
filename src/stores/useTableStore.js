@@ -1,3 +1,4 @@
+// stores/useTableStore.js
 import { defineStore } from 'pinia';
 
 export const useTableStore = defineStore('table', {
@@ -6,9 +7,10 @@ export const useTableStore = defineStore('table', {
       { id: 'taskName', label: 'Название задачи', type: 'text', color: '#f0f0f0' },
       { id: 'deadline', label: 'Срок сдачи', type: 'date', color: '#e0f7fa' },
       { id: 'report', label: 'Отчётность', type: 'report', color: '#fff3e0' },
-    ], // Начальные блоки
-    workspaceOrder: [], // Порядок ID блоков в рабочей области
-    tableRows: [], // Строки таблицы
+      { id: 'control', label: 'Контроль', type: 'control', color: '#ffe0b2' }, // Тип изменён на 'control'
+    ],
+    workspaceOrder: [],
+    tableRows: [],
   }),
   getters: {
     sidebarItems: (state) =>
@@ -19,30 +21,27 @@ export const useTableStore = defineStore('table', {
         .filter((block) => block !== undefined),
   },
   actions: {
-    // Добавление нового блока
     addBlock(newBlock) {
       const block = {
-        id: Date.now().toString(), // Уникальный ID
+        id: Date.now().toString(),
         label: newBlock.label,
         type: newBlock.type,
         color: newBlock.color,
       };
       this.blocks.push(block);
     },
-    // Обновление сайдбара
     updateSidebarItems(newSidebarItems) {
       const sidebarIds = newSidebarItems.map((item) => item.id);
       this.workspaceOrder = this.workspaceOrder.filter((id) => !sidebarIds.includes(id));
     },
-    // Обновление рабочей области
     updateTableHeaders(newTableHeaders) {
       this.workspaceOrder = newTableHeaders.map((header) => header.id);
     },
-    // Добавление строки
     addRow() {
       const newRow = {
         id: Date.now(),
         cells: {},
+        status: 'не сдано', // Статус задачи
       };
       this.tableHeaders.forEach((header) => {
         newRow.cells[header.id] = '';
