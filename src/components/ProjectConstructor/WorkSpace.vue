@@ -34,7 +34,7 @@
           <select
             v-model="row.cells[header.id]"
             class="form-control w-100"
-            :disabled="props.isEmployee"
+            :disabled="props.isEmployee || row.status === 'сдано'"
           >
             <option value="">Выберите сотрудника</option>
             <option v-for="employee in employees" :key="employee.id" :value="employee.name">
@@ -49,19 +49,21 @@
           <template v-if="props.isEmployee">
             <!-- Если выбрана ссылка -->
             <input
-              v-if="row.cells[header.id] === 'link'"
-              v-model="row.reportValue"
+              v-if="row.cells[header.id]?.type === 'link'"
+              v-model="row.cells[header.id].file"
               type="text"
               class="form-control w-100"
               placeholder="Введите ссылку"
+              :disabled="row.status === 'сдано'"
             />
 
             <!-- Если выбран файл -->
             <input
-              v-else-if="row.cells[header.id] !== 'Нет'"
+              v-else-if="row.cells[header.id]?.type !== 'Нет'"
               type="file"
               class="form-control w-100"
-              @change="handleFileUpload($event, row)"
+              @change="handleFileUpload($event, row, header)"
+              :disabled="row.status === 'сдано'"
             />
 
             <!-- Если выбрано "Нет" -->
@@ -71,8 +73,9 @@
           <!-- Для менеджера и администратора: select для выбора типа отчётности -->
           <template v-else>
             <select
-              v-model="row.cells[header.id]"
+              v-model="row.cells[header.id].type"
               class="form-control w-100"
+              :disabled="row.status === 'сдано'"
             >
               <option value="Нет">Нет</option>
               <option value="link">Ссылка</option>
@@ -92,7 +95,7 @@
             type="text"
             class="form-control w-100"
             placeholder="Введите текст"
-            :disabled="props.isEmployee"
+            :disabled="props.isEmployee || row.status === 'сдано'"
           />
           <input
             v-if="header.type === 'number'"
@@ -100,31 +103,37 @@
             type="number"
             class="form-control w-100"
             placeholder="Введите число"
-            :disabled="props.isEmployee"
+            :disabled="props.isEmployee || row.status === 'сдано'"
           />
           <input
             v-if="header.type === 'date'"
             v-model="row.cells[header.id]"
             type="date"
             class="form-control w-100"
-            :disabled="props.isEmployee"
+            :disabled="props.isEmployee || row.status === 'сдано'"
           />
         </template>
       </div>
 
       <!-- Кнопка "Отметить выполнение" (справа от строки) -->
-      <button
-        v-if="props.isEmployee"
-        @click="markTaskAsCompleted(row)"
-        class="btn btn-sm"
-        :class="{
-          'btn-secondary': row.status === 'сдано',
-          'btn-success': row.status !== 'сдано',
-        }"
-        :disabled="row.status === 'сдано' || !canMarkAsCompleted(row)"
-      >
-        {{ row.status === 'сдано' ? 'Выполнено' : 'Отметить выполнение' }}
-      </button>
+      <template v-if="props.isEmployee">
+        <button
+          v-if="row.status === 'не сдано'"
+          @click="markTaskAsCompleted(row)"
+          class="btn btn-sm btn-success"
+          :disabled="!canMarkAsCompleted(row)"
+        >
+          Отметить выполнение
+        </button>
+        <button
+          v-else-if="row.status === 'на рассмотрении'"
+          class="btn btn-sm btn-warning"
+          disabled
+        >
+          На рассмотрении
+        </button>
+        <span v-else-if="row.status === 'сдано'" class="badge bg-success">Выполнено</span>
+      </template>
     </div>
 
     <!-- Кнопка для добавления строки (скрыта для сотрудника) -->
@@ -179,34 +188,70 @@ const employees = [
 
 // Добавление строки
 const addRow = () => {
-  projectStore.addRow(props.projectId);
+  const newRow = {
+    id: Date.now(),
+    cells: {},
+    status: 'не сдано',
+  };
+
+  // Инициализируем ячейки для всех заголовков
+  workspaceHeaders.value.forEach((header) => {
+    if (header.type === 'report') {
+      // Для полей "Отчётность" создаём объект с типом и файлом
+      newRow.cells[header.id] = { type: 'Нет', file: null };
+    } else {
+      // Для остальных полей используем пустую строку
+      newRow.cells[header.id] = '';
+    }
+  });
+
+  projectStore.addRow(props.projectId, newRow);
 };
 
 // Обработка загрузки файла
-const handleFileUpload = (event, row) => {
+const handleFileUpload = (event, row, header) => {
   const file = event.target.files[0];
   if (file) {
-    row.reportValue = file.name; // Сохраняем имя файла
+    // Инициализируем объект, если его нет
+    if (!row.cells[header.id] || typeof row.cells[header.id] === 'string') {
+      row.cells[header.id] = { type: 'any', file: null }; // Инициализируем объект
+    }
+    row.cells[header.id].file = file; // Сохраняем файл
   }
 };
 
 // Проверка, можно ли отметить задачу как выполненную
 const canMarkAsCompleted = (row) => {
-  const reportHeader = workspaceHeaders.value.find((header) => header.type === 'report');
-  if (reportHeader) {
-    const reportType = row.cells[reportHeader.id];
-    if (reportType === 'Нет') {
-      return true; // Если отчётность не требуется, можно отметить
-    }
-    return !!row.reportValue; // Проверяем, заполнено ли поле отчётности
+  // Получаем все блоки с типом "report" в рабочей зоне
+  const reportHeaders = workspaceHeaders.value.filter(
+    (header) => header.type === 'report'
+  );
+
+  // Если в рабочей зоне нет полей "Отчётность", задачу можно отметить сразу
+  if (reportHeaders.length === 0) {
+    return true;
   }
-  return true;
+
+  // Проверяем, заполнены ли все обязательные поля "Отчётность"
+  for (const header of reportHeaders) {
+    const cell = row.cells[header.id]; // Данные ячейки (тип и файл)
+    const reportType = cell?.type; // Тип отчётности (например, "Нет", "link", "pdf")
+    const reportFile = cell?.file; // Загруженный файл
+
+    // Если поле "Отчётность" не помечено как "Нет" и файл не загружен, задача не может быть выполнена
+    if (reportType !== 'Нет' && !reportFile) {
+      return false;
+    }
+  }
+
+  return true; // Все обязательные поля заполнены
 };
 
 // Отметка задачи как выполненной
 const markTaskAsCompleted = (row) => {
   if (canMarkAsCompleted(row)) {
-    row.status = 'на рассмотрении'; // Меняем статус задачи
+    row.status = 'на рассмотрении';
+    row.submittedAt = new Date().toLocaleString(); // Добавляем дату и время отправки
   }
 };
 
@@ -241,5 +286,16 @@ const onDragEnd = (event) => {
 .table-cell select {
   width: 100%;
   box-sizing: border-box;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.badge {
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
 }
 </style>

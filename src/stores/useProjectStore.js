@@ -1,4 +1,3 @@
-// stores/useProjectStore.js
 import { defineStore } from 'pinia';
 
 export const useProjectStore = defineStore('project', {
@@ -57,6 +56,19 @@ export const useProjectStore = defineStore('project', {
           color: newBlock.color,
         };
         project.blocks.push(block);
+
+        // Если блок добавлен в рабочую зону, инициализируем данные для всех строк
+        if (project.workspaceOrder.includes(block.id)) {
+          project.tableRows.forEach((row) => {
+            if (block.type === 'report') {
+              // Для полей "Отчётность" создаём объект с типом и файлом
+              row.cells[block.id] = { type: 'Нет', file: null };
+            } else {
+              // Для остальных полей используем пустую строку
+              row.cells[block.id] = '';
+            }
+          });
+        }
       }
     },
     // Обновление tableHeaders (рабочей области)
@@ -88,22 +100,39 @@ export const useProjectStore = defineStore('project', {
       const project = this.getProjectById(projectId);
       if (project) {
         project.workspaceOrder = project.workspaceOrder.filter((id) => id !== blockId);
+        // Очищаем данные по этому столбцу во всех строках
+        project.tableRows.forEach((row) => {
+          delete row.cells[blockId];
+        });
       }
     },
     // Добавление строки
-    addRow(projectId) {
+    addRow(projectId, newRow) {
       const project = this.getProjectById(projectId);
       if (project) {
-        const newRow = {
-          id: Date.now(),
-          cells: {},
-          status: 'не сдано', // Добавляем статус строки
-        };
-        this.getTableHeaders(projectId).forEach((header) => {
-          newRow.cells[header.id] = '';
+        // Инициализируем ячейки для всех заголовков
+        const headers = this.getTableHeaders(projectId);
+        headers.forEach((header) => {
+          if (header.type === 'report') {
+            // Для полей "Отчётность" создаём объект с типом и файлом
+            newRow.cells[header.id] = { type: 'Нет', file: null };
+          } else {
+            // Для остальных полей используем пустую строку
+            newRow.cells[header.id] = '';
+          }
         });
+
         project.tableRows.push(newRow);
       }
+    },
+    // Обновление статуса задачи
+    updateTaskStatus(taskId, newStatus) {
+      this.projects.forEach((project) => {
+        const task = project.tableRows.find((row) => row.id === taskId);
+        if (task) {
+          task.status = newStatus;
+        }
+      });
     },
   },
 });
