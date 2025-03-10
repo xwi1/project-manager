@@ -30,7 +30,7 @@
         :style="{ width: '200px' }"
       >
         <!-- Если это блок "Контроль", показываем select с сотрудниками -->
-        <template v-if="header.type === 'control'">
+        <template v-if="header && header.type === 'control'">
           <select
             v-model="row.cells[header.id]"
             class="form-control w-100"
@@ -43,8 +43,8 @@
           </select>
         </template>
 
-        <!-- Если это блок "Отчётность" -->
-        <template v-else-if="header.type === 'report'">
+        <!-- Если это блок "Документ" -->
+        <template v-else-if="header && header.type === 'file'">
           <!-- Для сотрудника: одно поле в зависимости от выбора менеджера -->
           <template v-if="props.isEmployee">
             <!-- Если выбрана ссылка -->
@@ -70,7 +70,7 @@
             <span v-else>Нет</span>
           </template>
 
-          <!-- Для менеджера и администратора: select для выбора типа отчётности -->
+          <!-- Для менеджера и администратора: select для выбора типа документа -->
           <template v-else>
             <select
               v-model="row.cells[header.id].type"
@@ -134,6 +134,7 @@
         </button>
         <span v-else-if="row.status === 'сдано'" class="badge bg-success">Выполнено</span>
       </template>
+      
     </div>
 
     <!-- Кнопка для добавления строки (скрыта для сотрудника) -->
@@ -196,8 +197,8 @@ const addRow = () => {
 
   // Инициализируем ячейки для всех заголовков
   workspaceHeaders.value.forEach((header) => {
-    if (header.type === 'report') {
-      // Для полей "Отчётность" создаём объект с типом и файлом
+    if (header.type === 'file') {
+      // Для полей "Документ" создаём объект с типом и файлом
       newRow.cells[header.id] = { type: 'Нет', file: null };
     } else {
       // Для остальных полей используем пустую строку
@@ -222,24 +223,24 @@ const handleFileUpload = (event, row, header) => {
 
 // Проверка, можно ли отметить задачу как выполненную
 const canMarkAsCompleted = (row) => {
-  // Получаем все блоки с типом "report" в рабочей зоне
-  const reportHeaders = workspaceHeaders.value.filter(
-    (header) => header.type === 'report'
+  // Получаем все блоки с типом "file" в рабочей зоне
+  const fileHeaders = workspaceHeaders.value.filter(
+    (header) => header.type === 'file'
   );
 
-  // Если в рабочей зоне нет полей "Отчётность", задачу можно отметить сразу
-  if (reportHeaders.length === 0) {
+  // Если в рабочей зоне нет полей "Документ", задачу можно отметить сразу
+  if (fileHeaders.length === 0) {
     return true;
   }
 
-  // Проверяем, заполнены ли все обязательные поля "Отчётность"
-  for (const header of reportHeaders) {
+  // Проверяем, заполнены ли все обязательные поля "Документ"
+  for (const header of fileHeaders) {
     const cell = row.cells[header.id]; // Данные ячейки (тип и файл)
-    const reportType = cell?.type; // Тип отчётности (например, "Нет", "link", "pdf")
-    const reportFile = cell?.file; // Загруженный файл
+    const fileType = cell?.type; // Тип документа (например, "Нет", "link", "pdf")
+    const fileValue = cell?.file; // Загруженный файл
 
-    // Если поле "Отчётность" не помечено как "Нет" и файл не загружен, задача не может быть выполнена
-    if (reportType !== 'Нет' && !reportFile) {
+    // Если поле "Документ" не помечено как "Нет" и файл не загружен, задача не может быть выполнена
+    if (fileType !== 'Нет' && !fileValue) {
       return false;
     }
   }

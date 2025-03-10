@@ -15,7 +15,7 @@
         <option value="number">Число</option>
         <option value="date">Дата</option>
         <option value="control">Контроль</option>
-        <option value="report">Отчётность</option>
+        <option value="file">Документ</option> <!-- Переименовано с "Отчётность" на "Документ" -->
       </select>
       <input v-model="newBlock.color" type="color" class="form-control mb-2" />
       <button @click="addNewBlock" class="btn btn-primary w-100">Добавить блок</button>

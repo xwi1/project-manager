@@ -6,10 +6,11 @@
         <h5 class="card-title">{{ report.taskName }}</h5>
         <p class="card-text">
           <strong>Проект:</strong> {{ report.projectName }}<br />
-          <!-- Отображаем только те поля "Отчётность", которые не помечены как "Нет" -->
+          <!-- Отображаем все поля из рабочей зоны -->
           <template v-for="block in report.workspaceBlocks" :key="block.id">
-            <template v-if="block.type === 'report' && report.cells[block.id]?.type !== 'Нет'">
-              <strong>{{ block.label }}:</strong>
+            <strong>{{ block.label }}:</strong>
+            <!-- Если это поле типа "Документ" -->
+            <template v-if="block.type === 'file'">
               <a
                 v-if="report.cells[block.id]?.file"
                 :href="getFileUrl(report.cells[block.id].file)"
@@ -19,8 +20,12 @@
                 <span class="badge bg-primary">Скачать файл</span>
               </a>
               <span v-else class="text-muted">Нет файла</span>
-              <br />
             </template>
+            <!-- Для остальных типов полей -->
+            <template v-else>
+              {{ report.cells[block.id] || 'Не указано' }}
+            </template>
+            <br />
           </template>
           <strong>Дата и время отправки:</strong> {{ report.submittedAt }}
         </p>
