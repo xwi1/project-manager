@@ -1,6 +1,7 @@
 // useProjectStore.js
 import { defineStore } from 'pinia';
 import { reactive } from 'vue';
+import api from '@/utils/api';
 
 export const useProjectStore = defineStore('project', {
   state: () => ({
@@ -22,20 +23,43 @@ export const useProjectStore = defineStore('project', {
     },
   },
   actions: {
-    createProject(name) {
-      const newProject = reactive({
-        id: Date.now().toString(),
-        name,
-        blocks: [
-          { id: 'taskName', label: 'Название задачи', type: 'text', color: '#f0f0f0' },
-          { id: 'deadline', label: 'Срок сдачи', type: 'date', color: '#e0f7fa' },
-          { id: 'file', label: 'Документ', type: 'file', color: '#fff3e0' },
-          { id: 'control', label: 'Контроль', type: 'control', color: '#ffe0b2' },
-        ],
-        workspaceOrder: [],
-        tableRows: reactive([]),
-      });
-      this.projects.push(newProject);
+    async loadProjects(userId) {
+      try {
+        const response = await api.get(`/projects?userId=${userId}`);
+        this.projects = response.data.map(project => this.mapProjectFromServer(project));
+      } catch (error) {
+        console.error('Ошибка загрузки проектов:', error);
+      }
+    },
+    async saveProject(projectId) {
+      const project = this.getProjectById(projectId);
+      if (!project) return;
+
+      try {
+        await api.put(`/projects/${projectId}`, {
+          blocks: project.blocks,
+          workspaceOrder: project.workspaceOrder,
+          tableRows: project.tableRows
+        });
+      } catch (error) {
+        console.error('Ошибка сохранения проекта:', error);
+        throw error;
+      }
+    },
+    async createProject(name, userId) {
+      try {
+        const response = await api.post('/projects', { name, userId });
+        console.log('Server response:', response.data); // Добавьте это
+        
+        const newProject = this.mapProjectFromServer(response.data);
+        console.log('Mapped project:', newProject); // И это
+        
+        this.projects.push(newProject);
+        return newProject;
+      } catch (error) {
+        console.error('Ошибка создания проекта:', error);
+        throw error;
+      }
     },
 
     addBlock(projectId, newBlock) {
@@ -86,24 +110,61 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    addRow(projectId) {
+    async addRow(projectId) {
       const project = this.getProjectById(projectId);
       if (!project) return;
-
+    
       const newRow = reactive({
-        id: Date.now().toString(),
+        id: Date.now().toString(), // Временный ID
         cells: reactive({}),
         status: 'не сдано',
       });
-
-      // Инициализация для всех текущих заголовков
+    
       this.getTableHeaders(projectId).forEach(header => {
         newRow.cells[header.id] = header.type === 'file' 
           ? reactive({ type: 'Нет', file: null }) 
           : '';
       });
-
+    
       project.tableRows.push(newRow);
+      
+      try {
+        // Добавляем объявление response
+        const response = await api.post('/tasks', {
+          projectId,
+          cells: newRow.cells
+        });
+        
+        // Обновляем ID на серверный
+        newRow.id = response.data.id.toString();
+        
+      } catch (error) {
+        console.error('Ошибка создания задачи:', error);
+        // Откатываем изменения при ошибке
+        project.tableRows = project.tableRows.filter(row => row.id !== newRow.id);
+      }
+    },
+
+    mapProjectFromServer(project) {
+      return reactive({
+        id: project.id.toString(),
+        name: project.name,
+        blocks: project.blocks?.map(block => ({
+          id: block.id.toString(),
+          label: block.label || '',
+          type: block.type || 'text',
+          color: block.color || '#f0f0f0'
+        })) || [],
+        workspaceOrder: project.workspaceOrder?.map(id => id.toString()) || [],
+        tableRows: reactive(
+          project.tasks?.map(task => ({
+            id: task.id.toString(),
+            cells: reactive(task.cells || {}),
+            status: task.status || 'не сдано',
+            submittedAt: task.submittedAt || null
+          })) || []
+        )
+      });
     },
 
     updateTableHeaders(projectId, newHeaders) {

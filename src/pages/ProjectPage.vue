@@ -1,6 +1,7 @@
 <template>
   <div class="project-page">
     <h2 class="project-title">{{ project.name }}</h2>
+    <button @click="saveProject" class="btn btn-success">Сохранить проект</button>
     <div class="constructor d-flex">
       <SideBar v-if="!authStore.isEmployee" :project-id="projectId" />
       <WorkSpace :is-employee="authStore.isEmployee" :project-id="projectId" />
@@ -34,6 +35,14 @@ onMounted(() => {
     router.push('/projects');
   }
 });
+const saveProject = async () => {
+  try {
+    await projectStore.saveProject(projectId);
+    alert('Проект успешно сохранён!');
+  } catch (error) {
+    alert('Ошибка сохранения проекта!');
+  }
+};
 </script>
 
 <style scoped>

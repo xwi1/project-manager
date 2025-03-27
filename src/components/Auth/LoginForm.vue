@@ -32,19 +32,21 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useRouter } from 'vue-router';
 
 const email = ref('');
-const password = ref('');
+const password = ref(''); // Добавляем ref для пароля
 const authStore = useAuthStore();
 const router = useRouter();
 
-const handleLogin = () => {
-  // Здесь будет запрос к бэкенду для авторизации
-  const userData = {
-    id: 1,
+const handleLogin = async () => {
+  const result = await authStore.login({
     email: email.value,
-    role: 'admin', // Роль будет приходить с бэкенда
-  };
-  authStore.login(userData);
-  router.push('/projects');
+    password: password.value // Передаем пароль
+  });
+
+  if (result.success) {
+    router.push('/projects');
+  } else {
+    alert(result.error); // Показываем ошибку
+  }
 };
 </script>
 

@@ -47,14 +47,16 @@ onMounted(() => {
 });
 
 // Создание нового проекта
-const createProject = () => {
-  if (!newProjectName.value.trim()) {
-    alert('Название проекта не может быть пустым!');
-    return;
+const createProject = async () => {
+  try {
+    await projectStore.createProject(
+      newProjectName.value,
+      authStore.user.id // Должно быть числом (например, 1)
+    );
+  } catch (error) {
+    alert(`Ошибка: ${error.response?.data?.details || error.message}`);
   }
-  projectStore.createProject(newProjectName.value);
-  newProjectName.value = ''; // Сброс поля ввода
-};
+}
 </script>
 
 <style scoped>

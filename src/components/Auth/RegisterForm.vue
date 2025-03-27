@@ -50,15 +50,19 @@ const role = ref('employee'); // По умолчанию роль "Сотруд�
 const authStore = useAuthStore();
 const router = useRouter();
 
-const handleRegister = () => {
-  // Здесь будет запрос к бэкенду для регистрации
+const handleRegister = async () => {
   const userData = {
-    id: Date.now(),
     email: email.value,
-    role: role.value,
+    password: password.value, // Добавляем пароль
+    role: role.value
   };
-  authStore.register(userData);
-  router.push('/projects');
+
+  const result = await authStore.register(userData);
+  if (result.success) {
+    router.push('/projects');
+  } else {
+    alert(result.error);
+  }
 };
 </script>
 
