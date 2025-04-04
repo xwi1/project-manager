@@ -110,12 +110,12 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    async addRow(projectId) {
+    addRow(projectId) {
       const project = this.getProjectById(projectId);
       if (!project) return;
     
       const newRow = reactive({
-        id: Date.now().toString(), // Временный ID
+        id: crypto.randomUUID(), // Временный ID
         cells: reactive({}),
         status: 'не сдано',
       });
@@ -127,22 +127,13 @@ export const useProjectStore = defineStore('project', {
       });
     
       project.tableRows.push(newRow);
-      
-      try {
-        // Добавляем объявление response
-        const response = await api.post('/tasks', {
-          projectId,
-          cells: newRow.cells
-        });
-        
-        // Обновляем ID на серверный
-        newRow.id = response.data.id.toString();
-        
-      } catch (error) {
-        console.error('Ошибка создания задачи:', error);
-        // Откатываем изменения при ошибке
-        project.tableRows = project.tableRows.filter(row => row.id !== newRow.id);
-      }
+    },
+    
+    async deleteRow(taskId) {
+      const response = await api.delete('/tasks', { data: { taskId }} )
+      // костыль
+      this.loadProjects()
+      console.log(response)
     },
 
     mapProjectFromServer(project) {
@@ -183,11 +174,18 @@ export const useProjectStore = defineStore('project', {
     },
 
     // Остальные методы остаются без изменений
-    updateTaskStatus(taskId, newStatus) {
-      this.projects.forEach(project => {
-        const task = project.tableRows.find(row => row.id === taskId);
-        if (task) task.status = newStatus;
-      });
+    async updateTaskStatus(taskId, newStatus) {
+      try {
+        const response = await api.put(`/tasks/${taskId}`, { newStatus })
+        console.log(response)
+        this.projects.forEach(project => {
+          const task = project.tableRows.find(row => row.id === taskId);
+          if (task) task.status = newStatus;
+        });
+      } catch (error) {
+        console.log(error)
+      }
+      
     },
     updateSidebarItems(projectId, newSidebarItems) {
       const project = this.getProjectById(projectId);

@@ -40,10 +40,11 @@ const router = useRouter();
 const newProjectName = ref('');
 
 // Проверка авторизации при загрузке страницы
-onMounted(() => {
+onMounted(async () => {
   if (!authStore.isAuthenticated) {
     router.push('/login');
   }
+  await projectStore.loadProjects(authStore.user.id)
 });
 
 // Создание нового проекта

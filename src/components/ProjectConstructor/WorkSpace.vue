@@ -134,6 +134,16 @@
         </button>
         <span v-else-if="row.status === 'сдано'" class="badge bg-success">Выполнено</span>
       </template>
+
+      <!--Кнопка удаления строки-->
+      <template v-if="!props.isEmployee">
+        <button
+          @click="handleDeleteRow(row.id)"
+          class="btn btn-sm btn-danger"
+        >
+          Удалить
+        </button>
+      </template>
       
     </div>
 
@@ -189,25 +199,12 @@ const employees = [
 
 // Добавление строки
 const addRow = () => {
-  const newRow = {
-    id: Date.now(),
-    cells: {},
-    status: 'не сдано',
-  };
-
-  // Инициализируем ячейки для всех заголовков
-  workspaceHeaders.value.forEach((header) => {
-    if (header.type === 'file') {
-      // Для полей "Документ" создаём объект с типом и файлом
-      newRow.cells[header.id] = { type: 'Нет', file: null };
-    } else {
-      // Для остальных полей используем пустую строку
-      newRow.cells[header.id] = '';
-    }
-  });
-
-  projectStore.addRow(props.projectId, newRow);
+  projectStore.addRow(props.projectId);
 };
+
+const handleDeleteRow = (taskId) => {
+  projectStore.deleteRow(taskId)
+}
 
 // Обработка загрузки файла
 const handleFileUpload = (event, row, header) => {
@@ -251,8 +248,7 @@ const canMarkAsCompleted = (row) => {
 // Отметка задачи как выполненной
 const markTaskAsCompleted = (row) => {
   if (canMarkAsCompleted(row)) {
-    row.status = 'на рассмотрении';
-    row.submittedAt = new Date().toLocaleString(); // Добавляем дату и время отправки
+    projectStore.updateTaskStatus(row.id, 'на рассмотрении')
   }
 };
 

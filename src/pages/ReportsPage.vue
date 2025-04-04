@@ -3,12 +3,11 @@
     <h2 class="mb-4">Отчёты</h2>
     <div v-for="report in pendingReports" :key="report.id" class="card mb-4 shadow-sm">
       <div class="card-body">
-        <h5 class="card-title">{{ report.taskName }}</h5>
         <p class="card-text">
-          <strong>Проект:</strong> {{ report.projectName }}<br />
+          <strong>Проект: </strong> {{ report.projectName }}<br />
           <!-- Отображаем все поля из рабочей зоны -->
           <template v-for="block in report.workspaceBlocks" :key="block.id">
-            <strong>{{ block.label }}:</strong>
+            <strong>{{ block.label }}: </strong>
             <!-- Если это поле типа "Документ" -->
             <template v-if="block.type === 'file'">
               <a

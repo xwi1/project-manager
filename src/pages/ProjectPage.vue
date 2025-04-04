@@ -1,7 +1,7 @@
 <template>
   <div class="project-page">
     <h2 class="project-title">{{ project.name }}</h2>
-    <button @click="saveProject" class="btn btn-success">Сохранить проект</button>
+    <button v-if="!authStore.isEmployee" @click="saveProject" class="btn btn-success">Сохранить проект</button>
     <div class="constructor d-flex">
       <SideBar v-if="!authStore.isEmployee" :project-id="projectId" />
       <WorkSpace :is-employee="authStore.isEmployee" :project-id="projectId" />
