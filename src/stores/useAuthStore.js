@@ -1,8 +1,8 @@
 // stores/useAuthStore.js
 import { defineStore } from 'pinia';
-import api from '@/utils/api'
+import api from '@/utils/api';
 import { ref } from 'vue';
-import router from '@/router' // Импортируем router напрямую
+import router from '@/router'; // Импортируем router напрямую
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -15,60 +15,62 @@ export const useAuthStore = defineStore('auth', {
       try {
         const response = await api.post('/auth/login', {
           email: credentials.email,
-          password: credentials.password // Добавляем пароль
+          password: credentials.password,
         });
 
         this.user = {
           id: response.data.id,
           email: response.data.email,
-          role: response.data.role
+          roles: response.data.roles || [], // Массив ролей
         };
 
         this.isAuthenticated = true;
         return { success: true };
       } catch (error) {
-        return { 
+        return {
           success: false,
-          error: error.response?.data?.error || 'Ошибка авторизации'
+          error: error.response?.data?.error || 'Ошибка авторизации',
         };
       }
     },
+
     // Регистрация пользователя
     async register(userData) {
       try {
         const response = await api.post('/auth/register', {
           email: userData.email,
           password: userData.password,
-          role: userData.role
-        })
+          roleNames: [userData.role], // Передаем массив ролей
+        });
 
         this.user = {
           id: response.data.id,
           email: response.data.email,
-          role: response.data.role
-        }
-        
-        this.isAuthenticated = true
-        return { success: true }
+          roles: response.data.roles || [], // Массив ролей
+        };
+
+        this.isAuthenticated = true;
+        return { success: true };
       } catch (error) {
-        console.error('Registration error:', error)
-        return { 
-          success: false, 
-          error: error.response?.data?.error || 'Ошибка регистрации' 
-        }
+        console.error('Registration error:', error);
+        return {
+          success: false,
+          error: error.response?.data?.error || 'Ошибка регистрации',
+        };
       }
     },
+
     // Логаут пользователя
     logout() {
-      this.user = null
-      this.isAuthenticated = false
-      router.push('/login')
-    }
+      this.user = null;
+      this.isAuthenticated = false;
+      router.push('/login');
+    },
   },
   getters: {
     // Проверка роли пользователя
-    isAdmin: (state) => state.user?.role === 'admin',
-    isManager: (state) => state.user?.role === 'manager', // Менеджер
-    isEmployee: (state) => state.user?.role === 'employee', // Сотрудник
+    isAdmin: (state) => state.user?.roles.includes('admin'),
+    isManager: (state) => state.user?.roles.includes('manager'), // Менеджер
+    isEmployee: (state) => state.user?.roles.includes('employee'), // Сотрудник
   },
 });

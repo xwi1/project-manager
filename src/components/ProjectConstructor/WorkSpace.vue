@@ -21,7 +21,11 @@
     </vuedraggable>
 
     <!-- Строки таблицы -->
-    <div v-for="(row, rowIndex) in tableRows" :key="rowIndex" class="d-flex gap-2 mb-2 align-items-center">
+    <div
+      v-for="(row) in tableRows"
+      :key="row.id"
+      class="d-flex gap-2 mb-2 align-items-center"
+    >
       <!-- Ячейки таблицы -->
       <div
         v-for="header in workspaceHeaders"
@@ -29,23 +33,27 @@
         class="table-cell"
         :style="{ width: '200px' }"
       >
-        <!-- Если это блок "Контроль", показываем select с сотрудниками -->
-        <template v-if="header && header.type === 'control'">
+        <!-- Если это блок "Контроль" -->
+        <template v-if="header.type === 'control'">
           <select
             v-model="row.cells[header.id]"
             class="form-control w-100"
-            :disabled="props.isEmployee || row.status === 'сдано'"
+            :disabled="props.isEmployee || row.status === 'approved'"
           >
             <option value="">Выберите сотрудника</option>
-            <option v-for="employee in employees" :key="employee.id" :value="employee.name">
+            <option
+              v-for="employee in employees"
+              :key="employee.id"
+              :value="employee.id"
+            >
               {{ employee.name }}
             </option>
           </select>
         </template>
 
         <!-- Если это блок "Документ" -->
-        <template v-else-if="header && header.type === 'file'">
-          <!-- Для сотрудника: одно поле в зависимости от выбора менеджера -->
+        <template v-else-if="header.type === 'file'">
+          <!-- Для сотрудника -->
           <template v-if="props.isEmployee">
             <!-- Если выбрана ссылка -->
             <input
@@ -54,28 +62,26 @@
               type="text"
               class="form-control w-100"
               placeholder="Введите ссылку"
-              :disabled="row.status === 'сдано'"
+              :disabled="row.status === 'approved'"
             />
-
             <!-- Если выбран файл -->
             <input
               v-else-if="row.cells[header.id]?.type !== 'Нет'"
               type="file"
               class="form-control w-100"
               @change="handleFileUpload($event, row, header)"
-              :disabled="row.status === 'сдано'"
+              :disabled="row.status === 'approved'"
             />
-
             <!-- Если выбрано "Нет" -->
             <span v-else>Нет</span>
           </template>
 
-          <!-- Для менеджера и администратора: select для выбора типа документа -->
+          <!-- Для менеджера/администратора -->
           <template v-else>
             <select
               v-model="row.cells[header.id].type"
               class="form-control w-100"
-              :disabled="row.status === 'сдано'"
+              :disabled="row.status === 'approved'"
             >
               <option value="Нет">Нет</option>
               <option value="link">Ссылка</option>
@@ -87,7 +93,7 @@
           </template>
         </template>
 
-        <!-- Для остальных блоков -->
+        <!-- Для остальных типов блоков -->
         <template v-else>
           <input
             v-if="header.type === 'text'"
@@ -115,10 +121,10 @@
         </template>
       </div>
 
-      <!-- Кнопка "Отметить выполнение" (справа от строки) -->
+      <!-- Кнопка "Отметить выполнение" для сотрудников -->
       <template v-if="props.isEmployee">
         <button
-          v-if="row.status === 'не сдано'"
+          v-if="row.status === 'not submitted'"
           @click="markTaskAsCompleted(row)"
           class="btn btn-sm btn-success"
           :disabled="!canMarkAsCompleted(row)"
@@ -126,16 +132,16 @@
           Отметить выполнение
         </button>
         <button
-          v-else-if="row.status === 'на рассмотрении'"
+          v-else-if="row.status === 'submitted'"
           class="btn btn-sm btn-warning"
           disabled
         >
           На рассмотрении
         </button>
-        <span v-else-if="row.status === 'сдано'" class="badge bg-success">Выполнено</span>
+        <span v-else-if="row.status === 'approved'" class="badge bg-success">Выполнено</span>
       </template>
 
-      <!--Кнопка удаления строки-->
+      <!-- Кнопка удаления строки для администраторов/менеджеров -->
       <template v-if="!props.isEmployee">
         <button
           @click="handleDeleteRow(row.id)"
@@ -144,10 +150,9 @@
           Удалить
         </button>
       </template>
-      
     </div>
 
-    <!-- Кнопка для добавления строки (скрыта для сотрудника) -->
+    <!-- Кнопка добавления строки (доступна только администраторам/менеджерам) -->
     <button
       v-if="workspaceHeaders.length > 0 && !props.isEmployee"
       @click="addRow"
@@ -160,7 +165,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { defineProps } from 'vue'; // Добавляем импорт defineProps
+import { defineProps } from 'vue';
 import vuedraggable from 'vuedraggable';
 import { useProjectStore } from '@/stores/useProjectStore';
 
@@ -181,15 +186,16 @@ const projectStore = useProjectStore();
 // Получаем проект по ID
 const project = computed(() => projectStore.getProjectById(props.projectId));
 
-// Получаем workspaceHeaders и tableRows из проекта
+// Заголовки рабочей зоны
 const workspaceHeaders = computed({
   get: () => projectStore.getTableHeaders(props.projectId),
   set: (value) => projectStore.updateTableHeaders(props.projectId, value),
 });
 
+// Строки таблицы
 const tableRows = computed(() => project.value?.tableRows || []);
 
-// Липовый список сотрудников
+// Липовый список сотрудников (заменить на реальный API)
 const employees = [
   { id: 1, name: 'Иванов Иван' },
   { id: 2, name: 'Петров Петр' },
@@ -202,60 +208,53 @@ const addRow = () => {
   projectStore.addRow(props.projectId);
 };
 
+// Удаление строки
 const handleDeleteRow = (taskId) => {
-  projectStore.deleteRow(taskId)
-}
+  projectStore.deleteRow(taskId);
+};
 
 // Обработка загрузки файла
 const handleFileUpload = (event, row, header) => {
   const file = event.target.files[0];
-  if (file) {
-    // Инициализируем объект, если его нет
-    if (!row.cells[header.id] || typeof row.cells[header.id] === 'string') {
-      row.cells[header.id] = { type: 'any', file: null }; // Инициализируем объект
-    }
-    row.cells[header.id].file = file; // Сохраняем файл
+  if (!file) return;
+
+  // Инициализируем ячейку, если её нет
+  if (!row.cells[header.id]) {
+    row.cells[header.id] = { type: 'any', file: null };
   }
+
+  // Сохраняем файл в ячейке
+  row.cells[header.id].file = file;
 };
 
 // Проверка, можно ли отметить задачу как выполненную
 const canMarkAsCompleted = (row) => {
-  // Получаем все блоки с типом "file" в рабочей зоне
   const fileHeaders = workspaceHeaders.value.filter(
     (header) => header.type === 'file'
   );
 
-  // Если в рабочей зоне нет полей "Документ", задачу можно отметить сразу
-  if (fileHeaders.length === 0) {
-    return true;
-  }
-
-  // Проверяем, заполнены ли все обязательные поля "Документ"
+  // Для каждого блока "Документ" проверяем, что файл выбран
   for (const header of fileHeaders) {
-    const cell = row.cells[header.id]; // Данные ячейки (тип и файл)
-    const fileType = cell?.type; // Тип документа (например, "Нет", "link", "pdf")
-    const fileValue = cell?.file; // Загруженный файл
-
-    // Если поле "Документ" не помечено как "Нет" и файл не загружен, задача не может быть выполнена
-    if (fileType !== 'Нет' && !fileValue) {
+    const cell = row.cells[header.id];
+    if (cell?.type !== 'Нет' && !cell?.value) {
       return false;
     }
   }
 
-  return true; // Все обязательные поля заполнены
+  return true;
 };
 
 // Отметка задачи как выполненной
 const markTaskAsCompleted = (row) => {
   if (canMarkAsCompleted(row)) {
-    projectStore.updateTaskStatus(row.id, 'на рассмотрении')
+    projectStore.updateTaskStatus(row.id, 'submitted');
   }
 };
 
-// Обработчик изменения порядка элементов
+// Обработчик изменения порядка заголовков
 const onDragEnd = (event) => {
   if (event.removed) {
-    // Если блок был удалён из рабочей зоны, возвращаем его в сайдбар
+    // Если блок был удалён из рабочей зоны, перемещаем его в сайдбар
     const blockId = event.removed.element.id;
     projectStore.moveBlockToSidebar(props.projectId, blockId);
   }
@@ -269,7 +268,7 @@ const onDragEnd = (event) => {
 }
 
 .workspace {
-  min-height: 500px; /* Увеличиваем высоту */
+  min-height: 500px;
   border: 2px dashed #ccc;
   padding: 20px;
   background-color: #f9f9f9;
@@ -285,10 +284,24 @@ const onDragEnd = (event) => {
   box-sizing: border-box;
 }
 
+.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
 .btn-warning {
   background-color: #ffc107;
   border-color: #ffc107;
   color: #000;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
 }
 
 .badge {

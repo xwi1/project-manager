@@ -1,9 +1,22 @@
 <template>
   <div class="project-page">
     <h2 class="project-title">{{ project.name }}</h2>
-    <button v-if="!authStore.isEmployee" @click="saveProject" class="btn btn-success">Сохранить проект</button>
+
+    <!-- Кнопка сохранения для администраторов и менеджеров -->
+    <button
+      v-if="!authStore.isEmployee"
+      @click="saveProject"
+      class="btn btn-success mb-3"
+    >
+      Сохранить проект
+    </button>
+
+    <!-- Конструктор проекта -->
     <div class="constructor d-flex">
+      <!-- Сайдбар для администраторов и менеджеров -->
       <SideBar v-if="!authStore.isEmployee" :project-id="projectId" />
+
+      <!-- Рабочая зона -->
       <WorkSpace :is-employee="authStore.isEmployee" :project-id="projectId" />
     </div>
   </div>
@@ -29,12 +42,14 @@ const projectId = route.params.id;
 const project = computed(() => projectStore.getProjectById(projectId));
 
 // Проверяем, существует ли проект
-onMounted(() => {
+onMounted(async () => {
   if (!project.value) {
     // Если проект не найден, перенаправляем на страницу с проектами
     router.push('/projects');
   }
 });
+
+// Сохранение проекта
 const saveProject = async () => {
   try {
     await projectStore.saveProject(projectId);

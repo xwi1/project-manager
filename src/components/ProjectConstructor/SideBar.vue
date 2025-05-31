@@ -15,7 +15,7 @@
         <option value="number">Число</option>
         <option value="date">Дата</option>
         <option value="control">Контроль</option>
-        <option value="file">Документ</option> <!-- Переименовано с "Отчётность" на "Документ" -->
+        <option value="file">Документ</option>
       </select>
       <input v-model="newBlock.color" type="color" class="form-control mb-2" />
       <button @click="addNewBlock" class="btn btn-primary w-100">Добавить блок</button>
@@ -43,12 +43,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { defineProps } from 'vue'; // Добавляем импорт defineProps
-import vuedraggable from 'vuedraggable';
+import { ref, computed, defineProps } from 'vue';
 import { useProjectStore } from '@/stores/useProjectStore';
+import vuedraggable from 'vuedraggable';
 
-// Используем defineProps для получения projectId
 const props = defineProps({
   projectId: {
     type: String,

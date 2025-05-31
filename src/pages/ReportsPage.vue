@@ -1,38 +1,62 @@
 <template>
   <div class="reports-page p-3">
     <h2 class="mb-4">Отчёты</h2>
-    <div v-for="report in pendingReports" :key="report.id" class="card mb-4 shadow-sm">
-      <div class="card-body">
-        <p class="card-text">
-          <strong>Проект: </strong> {{ report.projectName }}<br />
-          <!-- Отображаем все поля из рабочей зоны -->
-          <template v-for="block in report.workspaceBlocks" :key="block.id">
-            <strong>{{ block.label }}: </strong>
-            <!-- Если это поле типа "Документ" -->
-            <template v-if="block.type === 'file'">
-              <a
-                v-if="report.cells[block.id]?.file"
-                :href="getFileUrl(report.cells[block.id].file)"
-                download
-                class="text-decoration-none"
-              >
-                <span class="badge bg-primary">Скачать файл</span>
-              </a>
-              <span v-else class="text-muted">Нет файла</span>
+
+    <!-- Список задач на рассмотрении -->
+    <div v-if="pendingReports.length > 0">
+      <div
+        v-for="report in pendingReports"
+        :key="report.id"
+        class="card mb-4 shadow-sm"
+      >
+        <div class="card-body">
+          <p class="card-text">
+            <strong>Проект:</strong> {{ report.projectName }}<br />
+            <!-- Отображаем все поля из рабочей зоны -->
+            <template v-for="block in report.workspaceBlocks" :key="block.id">
+              <strong>{{ block.label }}:</strong>
+              <!-- Если это поле типа "Документ" -->
+              <template v-if="block.type === 'file'">
+                <a
+                  v-if="report.cells[block.id]?.file"
+                  :href="getFileUrl(report.cells[block.id].file)"
+                  download
+                  class="text-decoration-none"
+                >
+                  <span class="badge bg-primary">Скачать файл</span>
+                </a>
+                <span v-else class="text-muted">Нет файла</span>
+              </template>
+              <!-- Для остальных типов полей -->
+              <template v-else>
+                {{ report.cells[block.id] || 'Не указано' }}
+              </template>
+              <br />
             </template>
-            <!-- Для остальных типов полей -->
-            <template v-else>
-              {{ report.cells[block.id] || 'Не указано' }}
-            </template>
-            <br />
-          </template>
-          <strong>Дата и время отправки:</strong> {{ report.submittedAt }}
-        </p>
-        <div class="d-flex gap-2">
-          <button @click="approveReport(report.id)" class="btn btn-success">Принять</button>
-          <button @click="rejectReport(report.id)" class="btn btn-danger">Отклонить</button>
+            <strong>Дата и время отправки:</strong>
+            {{ report.submittedAt }}
+          </p>
+          <div class="d-flex gap-2">
+            <button
+              @click="approveReport(report.id)"
+              class="btn btn-success"
+            >
+              Принять
+            </button>
+            <button
+              @click="rejectReport(report.id)"
+              class="btn btn-danger"
+            >
+              Отклонить
+            </button>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- Сообщение, если задач на рассмотрении нет -->
+    <div v-else class="alert alert-info">
+      Нет задач на рассмотрении.
     </div>
   </div>
 </template>
@@ -48,20 +72,18 @@ const pendingReports = computed(() => {
   const reports = [];
   projectStore.projects.forEach((project) => {
     project.tableRows.forEach((row) => {
-      if (row.status === 'на рассмотрении') {
-        const taskName = row.cells.taskName || 'Без названия';
+      if (row.status === 'submitted') {
         const workspaceBlocks = project.workspaceOrder
           .map((blockId) => project.blocks.find((block) => block.id === blockId))
-          .filter((block) => block !== undefined); // Получаем только блоки из рабочей зоны
+          .filter((block) => block !== undefined);
 
         reports.push({
           id: row.id,
           projectId: project.id,
-          projectName: project.name, // Название проекта
-          taskName,
-          workspaceBlocks, // Блоки из рабочей зоны
-          cells: row.cells, // Данные из таблицы
-          submittedAt: row.submittedAt || 'Не указано', // Дата и время отправки
+          projectName: project.name || 'Без названия',
+          workspaceBlocks,
+          cells: row.cells || {},
+          submittedAt: row.submittedAt || 'Не указано',
         });
       }
     });
@@ -70,15 +92,23 @@ const pendingReports = computed(() => {
 });
 
 // Одобрение отчёта
-const approveReport = (reportId) => {
-  projectStore.updateTaskStatus(reportId, 'сдано');
-  alert('Отчёт принят. Задача выполнена.');
+const approveReport = async (reportId) => {
+  try {
+    await projectStore.updateTaskStatus(reportId, 'approved');
+    alert('Отчёт принят. Задача выполнена.');
+  } catch (error) {
+    alert('Ошибка при принятии отчёта!');
+  }
 };
 
 // Отклонение отчёта
-const rejectReport = (reportId) => {
-  projectStore.updateTaskStatus(reportId, 'не сдано');
-  alert('Отчёт отклонён. Задача возвращена в статус "не сдано".');
+const rejectReport = async (reportId) => {
+  try {
+    await projectStore.updateTaskStatus(reportId, 'not submitted');
+    alert('Отчёт отклонён. Задача возвращена в статус "не сдано".');
+  } catch (error) {
+    alert('Ошибка при отклонении отчёта!');
+  }
 };
 
 // Получение URL для скачивания файла
