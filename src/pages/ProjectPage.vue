@@ -17,7 +17,9 @@
       <SideBar v-if="!authStore.isEmployee" :project-id="projectId" />
 
       <!-- Рабочая зона -->
-      <WorkSpace :is-employee="authStore.isEmployee" :project-id="projectId" />
+      <div class="workspace-container">
+        <WorkSpace :is-employee="authStore.isEmployee" :project-id="projectId" />
+      </div>
     </div>
   </div>
 </template>
@@ -44,7 +46,6 @@ const project = computed(() => projectStore.getProjectById(projectId));
 // Проверяем, существует ли проект
 onMounted(async () => {
   if (!project.value) {
-    // Если проект не найден, перенаправляем на страницу с проектами
     router.push('/projects');
   }
 });
@@ -68,5 +69,25 @@ const saveProject = async () => {
 .project-title {
   font-size: 1.5rem;
   margin-bottom: 20px;
+}
+
+.constructor {
+  display: flex;
+  height: calc(100vh - 200px); /* Ограничиваем высоту контейнера */
+}
+
+/* Стили для сайдбара */
+.constructor > .sidebar {
+  width: 300px; /* Фиксированная ширина сайдбара */
+  border-right: 1px solid #ccc; /* Разделитель между сайдбаром и рабочей зоной */
+  padding-right: 10px;
+  overflow-y: auto; /* Прокрутка внутри сайдбара, если содержимое выходит за пределы */
+}
+
+/* Стили для контейнера рабочей зоны */
+.workspace-container {
+  flex-grow: 1; /* Занимает оставшееся пространство */
+  overflow-x: auto; /* Горизонтальная прокрутка */
+  padding-left: 10px;
 }
 </style>

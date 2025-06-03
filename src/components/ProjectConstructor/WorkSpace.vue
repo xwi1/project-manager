@@ -1,162 +1,88 @@
 <template>
-  <div class="workspace flex-grow-1 p-3">
-    <!-- Заголовки таблицы -->
-    <vuedraggable
-      v-model="workspaceHeaders"
-      group="blocks"
-      item-key="id"
-      ghost-class="ghost"
-      @change="onDragEnd"
-      class="d-flex gap-2 mb-3"
-      :disabled="props.isEmployee"
-    >
-      <template #item="{ element }">
-        <div
-          class="draggable-item p-2 text-center"
-          :style="{ backgroundColor: element.color, width: '200px' }"
+  <div class="workspace">
+    <!-- Подсказка, если нет блоков -->
+    <div v-if="workspaceHeaders.length === 0" class="drop-hint text-center my-5">
+      Перетащите блоки сюда
+    </div>
+
+    <!-- Контейнер для заголовков и строк таблицы -->
+    <div class="table-container">
+      <!-- Заголовки таблицы -->
+      <div class="headers no-wrap">
+        <vuedraggable
+          v-model="workspaceHeaders"
+          group="blocks"
+          item-key="id"
+          ghost-class="ghost"
+          @change="onDragEnd"
+          class="d-flex gap-2 mb-3 draggable-zone"
         >
-          {{ element.label }}
-        </div>
-      </template>
-    </vuedraggable>
-
-    <!-- Строки таблицы -->
-    <div
-      v-for="(row) in tableRows"
-      :key="row.id"
-      class="d-flex gap-2 mb-2 align-items-center"
-    >
-      <!-- Ячейки таблицы -->
-      <div
-        v-for="header in workspaceHeaders"
-        :key="header.id"
-        class="table-cell"
-        :style="{ width: '200px' }"
-      >
-        <!-- Если это блок "Контроль" -->
-        <template v-if="header.type === 'control'">
-          <select
-            v-model="row.cells[header.id]"
-            class="form-control w-100"
-            :disabled="props.isEmployee || row.status === 'approved'"
-          >
-            <option value="">Выберите сотрудника</option>
-            <option
-              v-for="employee in employees"
-              :key="employee.id"
-              :value="employee.id"
+          <template #item="{ element }">
+            <div
+              class="draggable-item p-2 text-center rounded d-flex align-items-center justify-content-center"
+              :style="{ backgroundColor: element.color, width: '200px', height: '50px' }"
             >
-              {{ employee.name }}
-            </option>
-          </select>
-        </template>
-
-        <!-- Если это блок "Документ" -->
-        <template v-else-if="header.type === 'file'">
-          <!-- Для сотрудника -->
-          <template v-if="props.isEmployee">
-            <!-- Если выбрана ссылка -->
-            <input
-              v-if="row.cells[header.id]?.type === 'link'"
-              v-model="row.cells[header.id].file"
-              type="text"
-              class="form-control w-100"
-              placeholder="Введите ссылку"
-              :disabled="row.status === 'approved'"
-            />
-            <!-- Если выбран файл -->
-            <input
-              v-else-if="row.cells[header.id]?.type !== 'Нет'"
-              type="file"
-              class="form-control w-100"
-              @change="handleFileUpload($event, row, header)"
-              :disabled="row.status === 'approved'"
-            />
-            <!-- Если выбрано "Нет" -->
-            <span v-else>Нет</span>
+              {{ element.label }}
+            </div>
           </template>
-
-          <!-- Для менеджера/администратора -->
-          <template v-else>
-            <select
-              v-model="row.cells[header.id].type"
-              class="form-control w-100"
-              :disabled="row.status === 'approved'"
-            >
-              <option value="Нет">Нет</option>
-              <option value="link">Ссылка</option>
-              <option value="pdf">PDF-файл</option>
-              <option value="word">Word-файл</option>
-              <option value="image">Изображение</option>
-              <option value="any">Любой файл</option>
-            </select>
-          </template>
-        </template>
-
-        <!-- Для остальных типов блоков -->
-        <template v-else>
-          <input
-            v-if="header.type === 'text'"
-            v-model="row.cells[header.id]"
-            type="text"
-            class="form-control w-100"
-            placeholder="Введите текст"
-            :disabled="props.isEmployee || row.status === 'сдано'"
-          />
-          <input
-            v-if="header.type === 'number'"
-            v-model="row.cells[header.id]"
-            type="number"
-            class="form-control w-100"
-            placeholder="Введите число"
-            :disabled="props.isEmployee || row.status === 'сдано'"
-          />
-          <input
-            v-if="header.type === 'date'"
-            v-model="row.cells[header.id]"
-            type="date"
-            class="form-control w-100"
-            :disabled="props.isEmployee || row.status === 'сдано'"
-          />
-        </template>
+        </vuedraggable>
       </div>
 
-      <!-- Кнопка "Отметить выполнение" для сотрудников -->
-      <template v-if="props.isEmployee">
-        <button
-          v-if="row.status === 'not submitted'"
-          @click="markTaskAsCompleted(row)"
-          class="btn btn-sm btn-success"
-          :disabled="!canMarkAsCompleted(row)"
+      <!-- Строки таблицы -->
+      <div
+        v-for="(row) in tableRows"
+        :key="row.id"
+        class="table-row d-flex gap-2 mb-2 align-items-center no-wrap"
+      >
+        <!-- Ячейки таблицы -->
+        <div
+          v-for="header in workspaceHeaders"
+          :key="header.id"
+          class="table-cell position-relative"
         >
-          Отметить выполнение
-        </button>
-        <button
-          v-else-if="row.status === 'submitted'"
-          class="btn btn-sm btn-warning"
-          disabled
-        >
-          На рассмотрении
-        </button>
-        <span v-else-if="row.status === 'approved'" class="badge bg-success">Выполнено</span>
-      </template>
+          <input
+            v-if="header.type === 'text'"
+            v-model="row.cells[header.id].value"
+            type="text"
+            class="form-control h-100 w-100 border-0"
+            placeholder="Введите текст"
+          />
+          <!-- <input
+            v-if="header.type === 'number'"
+            v-model="row.cells[header.id].value"
+            type="number"
+            class="form-control h-100 w-100 border-0"
+            placeholder="Введите число"
+          /> -->
+          <input
+            v-if="header.type === 'date'"
+            v-model="row.cells[header.id].value"
+            type="date"
+            class="form-control h-100 w-100 border-0"
+          />
+          <!-- <input
+            v-if="header.type === 'file'"
+            type="file"
+            class="form-control h-100 w-100 border-0"
+            @change="handleFileUpload($event, row, header)"
+          /> -->
+        </div>
 
-      <!-- Кнопка удаления строки для администраторов/менеджеров -->
-      <template v-if="!props.isEmployee">
+        <!-- Кнопка удаления строки -->
         <button
           @click="handleDeleteRow(row.id)"
           class="btn btn-sm btn-danger"
         >
           Удалить
         </button>
-      </template>
+      </div>
     </div>
 
-    <!-- Кнопка добавления строки (доступна только администраторам/менеджерам) -->
+    <!-- Кнопка добавления строки -->
     <button
-      v-if="workspaceHeaders.length > 0 && !props.isEmployee"
+      v-if="workspaceHeaders.length > 0"
       @click="addRow"
-      class="btn btn-success mt-3"
+      class="btn btn-success mt-3 fixed-button"
     >
       Добавить строку
     </button>
@@ -169,12 +95,7 @@ import { defineProps } from 'vue';
 import vuedraggable from 'vuedraggable';
 import { useProjectStore } from '@/stores/useProjectStore';
 
-// Используем defineProps для получения projectId и isEmployee
 const props = defineProps({
-  isEmployee: {
-    type: Boolean,
-    default: false,
-  },
   projectId: {
     type: String,
     required: true,
@@ -183,9 +104,6 @@ const props = defineProps({
 
 const projectStore = useProjectStore();
 
-// Получаем проект по ID
-const project = computed(() => projectStore.getProjectById(props.projectId));
-
 // Заголовки рабочей зоны
 const workspaceHeaders = computed({
   get: () => projectStore.getTableHeaders(props.projectId),
@@ -193,15 +111,7 @@ const workspaceHeaders = computed({
 });
 
 // Строки таблицы
-const tableRows = computed(() => project.value?.tableRows || []);
-
-// Липовый список сотрудников (заменить на реальный API)
-const employees = [
-  { id: 1, name: 'Иванов Иван' },
-  { id: 2, name: 'Петров Петр' },
-  { id: 3, name: 'Сидорова Анна' },
-  { id: 4, name: 'Кузнецов Алексей' },
-];
+const tableRows = computed(() => projectStore.getProjectById(props.projectId)?.tableRows || []);
 
 // Добавление строки
 const addRow = () => {
@@ -214,74 +124,146 @@ const handleDeleteRow = (taskId) => {
 };
 
 // Обработка загрузки файла
-const handleFileUpload = (event, row, header) => {
-  const file = event.target.files[0];
-  if (!file) return;
+// const handleFileUpload = (event, row, header) => {
+//   const file = event.target.files[0];
+//   if (!file) return;
 
-  // Инициализируем ячейку, если её нет
-  if (!row.cells[header.id]) {
-    row.cells[header.id] = { type: 'any', file: null };
-  }
+//   // Инициализируем ячейку, если её нет
+//   if (!row.cells[header.id]) {
+//     row.cells[header.id] = null;
+//   }
 
-  // Сохраняем файл в ячейке
-  row.cells[header.id].file = file;
-};
-
-// Проверка, можно ли отметить задачу как выполненную
-const canMarkAsCompleted = (row) => {
-  const fileHeaders = workspaceHeaders.value.filter(
-    (header) => header.type === 'file'
-  );
-
-  // Для каждого блока "Документ" проверяем, что файл выбран
-  for (const header of fileHeaders) {
-    const cell = row.cells[header.id];
-    if (cell?.type !== 'Нет' && !cell?.value) {
-      return false;
-    }
-  }
-
-  return true;
-};
-
-// Отметка задачи как выполненной
-const markTaskAsCompleted = (row) => {
-  if (canMarkAsCompleted(row)) {
-    projectStore.updateTaskStatus(row.id, 'submitted');
-  }
-};
+//   // Сохраняем файл в ячейке
+//   row.cells[header.id] = file;
+// };
 
 // Обработчик изменения порядка заголовков
 const onDragEnd = (event) => {
+  if (event.added) {
+    const blockId = event.added.element.id;
+    const newHeader = event.added.element;
+
+    // Добавляем новую ячейку для всех строк
+    tableRows.value.forEach((row) => {
+      if (!row.cells[blockId]) {
+        row.cells[blockId] = { value: '', type: newHeader.type || 'text' };
+      }
+    });
+
+    // Перемещаем блок в рабочую зону
+    projectStore.moveBlockToWorkspace(props.projectId, blockId);
+  }
+
   if (event.removed) {
-    // Если блок был удалён из рабочей зоны, перемещаем его в сайдбар
     const blockId = event.removed.element.id;
+
+    // Удаляем ячейки, связанные с этим блоком, из всех строк
+    tableRows.value.forEach((row) => {
+      delete row.cells[blockId];
+    });
+
+    // Перемещаем блок в сайдбар
     projectStore.moveBlockToSidebar(props.projectId, blockId);
   }
+
+  // Обновляем порядок блоков
+  updateBlockOrder();
+};
+
+// Обновление порядка блоков
+const updateBlockOrder = () => {
+  workspaceHeaders.value.forEach((block, index) => {
+    block.order = index; // Устанавливаем порядок в зависимости от позиции
+  });
+
+  // Обновляем данные в хранилище
+  projectStore.updateTableHeaders(props.projectId, workspaceHeaders.value);
 };
 </script>
 
 <style scoped>
-.draggable-item {
-  cursor: grab;
-  border-radius: 4px;
+.workspace {
+  padding: 20px;
+  border: 1px dashed #ccc;
+  background-color: #f9f9f9;
+  position: relative;
 }
 
-.workspace {
-  min-height: 500px;
-  border: 2px dashed #ccc;
-  padding: 20px;
-  background-color: #f9f9f9;
+.drop-hint {
+  font-size: 1.2rem;
+  color: #888;
+}
+
+.table-container {
+  overflow-x: auto; /* Включаем горизонтальную прокрутку */
+  max-height: calc(100vh - 300px); /* Ограничение высоты для вертикальной прокрутки */
+  overflow-y: auto;
+  padding: 10px 20px; /* Добавлены отступы */
+}
+
+.headers {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap; /* Запрещаем перенос строк */
+  min-width: 100%; /* Минимальная ширина для активации прокрутки */
+}
+
+.draggable-item {
+  cursor: grab; /* Курсор для перетаскивания */
+  width: 200px; /* Фиксированная ширина блока */
+  height: 50px; /* Фиксированная высота блока */
+  display: flex;
+  align-items: center; /* Выравнивание по центру по вертикали */
+  justify-content: center; /* Выравнивание по центру по горизонтали */
+  border-radius: 4px; /* Скругление углов */
+  flex-shrink: 0; /* Запрещаем сжатие блоков */
+}
+
+.draggable-zone {
+  min-height: 60px; /* Минимальная высота контейнера */
+  width: 100%; /* Занимает всю ширину родительского контейнера */
+  background-color: #f9f9f9; /* Фон для визуального выделения */
+  border-radius: 4px; /* Скругление углов */
+  box-sizing: border-box; /* Учитываем padding и border в размерах */
+}
+
+.table-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap; /* Запрещаем перенос строк */
+  min-width: 100%; /* Минимальная ширина для активации прокрутки */
 }
 
 .table-cell {
-  width: 200px;
+  width: 200px; /* Фиксированная ширина ячейки */
+  height: 50px; /* Фиксированная высота ячейки */
+  flex-shrink: 0; /* Запрещаем сжатие ячеек */
+  position: relative; /* Для позиционирования input */
 }
 
-.table-cell input,
-.table-cell select {
-  width: 100%;
-  box-sizing: border-box;
+.table-cell input {
+  width: 100%; /* Поле ввода занимает всю ширину ячейки */
+  height: 100%; /* Поле ввода занимает всю высоту ячейки */
+  box-sizing: border-box; /* Учитываем padding и border в размерах */
+  border: 1px solid #ccc; /* Граница для поля ввода */
+  border-radius: 4px; /* Скругление углов */
+  padding: 5px; /* Отступы внутри поля ввода */
+  font-size: 14px; /* Размер текста */
+  background-color: #e9ecef; /* Фон для поля ввода */
+  outline: none; /* Убираем стандартное выделение при фокусе */
+}
+
+.table-cell input:focus {
+  border-color: #007bff; /* Изменяем цвет границы при фокусе */
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Добавляем легкую тень для акцента */
+}
+
+.fixed-button {
+  position: sticky;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
 }
 
 .btn-success {
@@ -293,19 +275,8 @@ const onDragEnd = (event) => {
   background-color: #218838;
 }
 
-.btn-warning {
-  background-color: #ffc107;
-  border-color: #ffc107;
-  color: #000;
-}
-
 .btn-danger {
   background-color: #dc3545;
   border-color: #dc3545;
-}
-
-.badge {
-  font-size: 0.9rem;
-  padding: 0.5rem 0.75rem;
 }
 </style>

@@ -12,10 +12,7 @@
       />
       <select v-model="newBlock.type" class="form-control mb-2">
         <option value="text">Текст</option>
-        <option value="number">Число</option>
         <option value="date">Дата</option>
-        <option value="control">Контроль</option>
-        <option value="file">Документ</option>
       </select>
       <input v-model="newBlock.color" type="color" class="form-control mb-2" />
       <button @click="addNewBlock" class="btn btn-primary w-100">Добавить блок</button>
@@ -23,22 +20,30 @@
     </div>
 
     <!-- Список блоков в сайдбаре -->
-    <vuedraggable
-      v-model="sidebarItems"
-      group="blocks"
-      item-key="id"
-      ghost-class="ghost"
-      @change="onDragEnd"
-    >
-      <template #item="{ element }">
-        <div
-          class="draggable-item p-2 mb-2 text-center"
-          :style="{ backgroundColor: element.color }"
-        >
-          {{ element.label }}
-        </div>
-      </template>
-    </vuedraggable>
+    <div class="blocks-container">
+      <vuedraggable
+        v-model="sidebarItems"
+        group="blocks"
+        item-key="id"
+        ghost-class="ghost"
+        @change="onDragEnd"
+      >
+        <template #item="{ element }">
+          <div
+            class="d-flex align-items-center justify-content-between draggable-item p-2 mb-2 text-center"
+            :style="{ backgroundColor: element.color }"
+          >
+            <span>{{ element.label }}</span>
+            <font-awesome-icon
+              icon="trash"
+              class="text-danger cursor-pointer"
+              @click.stop="deleteBlock(element.id)"
+              title="Удалить блок"
+            />
+          </div>
+        </template>
+      </vuedraggable>
+    </div>
   </div>
 </template>
 
@@ -86,20 +91,42 @@ const sidebarItems = computed({
 // Обработчик изменения порядка элементов
 const onDragEnd = (event) => {
   if (event.added) {
-    // Если блок был добавлен в рабочую зону, перемещаем его
     const blockId = event.added.element.id;
     store.moveBlockToWorkspace(props.projectId, blockId);
   }
+};
+
+// Удаление блока
+const deleteBlock = (blockId) => {
+  store.deleteBlock(props.projectId, blockId);
 };
 </script>
 
 <style scoped>
 .sidebar {
   width: 250px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px); /* Ограничиваем высоту сайдбара */
+}
+
+.blocks-container {
+  flex-grow: 1; /* Занимает оставшееся пространство */
+  overflow-y: auto; /* Вертикальная прокрутка для списка блоков */
+  padding-top: 10px;
 }
 
 .draggable-item {
   cursor: grab;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.draggable-item span {
+  flex-grow: 1;
+  text-align: left;
+  margin-right: 10px;
 }
 </style>

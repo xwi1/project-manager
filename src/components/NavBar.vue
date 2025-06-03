@@ -24,6 +24,11 @@
           <li v-if="authStore.isManager" class="nav-item">
             <router-link to="/reports" class="nav-link">Отчёты</router-link>
           </li>
+
+          <!-- Ссылка на страницу отделов (только для администраторов) -->
+          <li v-if="authStore.isAdmin" class="nav-item">
+            <router-link to="/departments" class="nav-link">Отделы</router-link>
+          </li>
         </ul>
 
         <!-- Кнопка выхода -->

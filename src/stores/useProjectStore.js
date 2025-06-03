@@ -1,6 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
 import { defineStore } from 'pinia';
-import { reactive } from 'vue';
+// import { ref, computed } from 'vue';
 import api from '@/utils/api';
 
 export const useProjectStore = defineStore('project', {
@@ -17,7 +16,7 @@ export const useProjectStore = defineStore('project', {
     getSidebarItems: (state) => (projectId) => {
       const project = state.projects.find((project) => project.id === projectId);
       return project
-        ? project.blocks.filter((b) => !project.workspaceOrder.includes(b.id))
+        ? project.blocks.filter((block) => !project.workspaceOrder.includes(block.id))
         : [];
     },
 
@@ -25,78 +24,25 @@ export const useProjectStore = defineStore('project', {
     getTableHeaders: (state) => (projectId) => {
       const project = state.projects.find((project) => project.id === projectId);
       return project
-        ? project.workspaceOrder
-            .map((id) => project.blocks.find((b) => b.id === id))
-            .filter((b) => b)
+        ? project.workspaceOrder.map((id) => project.blocks.find((block) => block.id === id))
         : [];
     },
   },
   actions: {
     // Загрузка проектов
-    async loadProjects(userId) {
+    async loadProjects(userId = null) {
       try {
-        const response = await api.get(`/projects?userId=${userId || ''}`);
-        this.projects = response.data.map((project) => {
-          const mappedProject = this.mapProjectFromServer(project);
-  
-          // Синхронизируем ячейки для блоков в рабочей зоне
-          mappedProject.workspaceOrder.forEach((blockId) => {
-            this.syncCellsForBlock(mappedProject.id, blockId);
-          });
-  
-          return mappedProject;
-        });
+        const response = await api.get('/projects', { params: { userId } });
+        this.projects = response.data.map((project) => this.mapProjectFromServer(project));
       } catch (error) {
         console.error('Ошибка загрузки проектов:', error);
       }
     },
 
-    // Сохранение проекта
-    async saveProject(projectId) {
-      const project = this.getProjectById(projectId);
-      if (!project) return;
-    
-      const requestData = {
-        blocks: project.blocks.map((block) => ({
-          id: block.id,
-          label: block.label,
-          type: block.type,
-          color: block.color,
-          order: project.workspaceOrder.includes(block.id)
-            ? project.workspaceOrder.indexOf(block.id)
-            : null,
-        })),
-        tasks: project.tableRows.map((row) => ({
-          id: row.id,
-          parentId: row.parentId,
-          order: row.order,
-          status: row.status,
-          cells: Object.entries(row.cells).reduce((acc, [blockId, cellData]) => {
-            acc[blockId] = {
-              value: cellData.value || '',
-              type: cellData.type || 'text', // Указываем тип ячейки
-            };
-            return acc;
-          }, {}),
-        })),
-      };
-    
-      try {
-        await api.put(`/projects/${projectId}/save`, requestData);
-      } catch (error) {
-        console.error('Ошибка сохранения проекта:', error);
-        throw error;
-      }
-    },
-
     // Создание нового проекта
-    async createProject(name, userId) {
+    async createProject(name, userId = null, departmentId = null) {
       try {
-        const response = await api.post('/projects', {
-          name,
-          userId: userId || null, // userId может быть null
-        });
-
+        const response = await api.post('/projects', { name, userId, departmentId });
         const newProject = this.mapProjectFromServer(response.data);
         this.projects.push(newProject);
         return newProject;
@@ -106,15 +52,99 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
+    // Обновление проекта
+    async updateProject(projectId, updatedData) {
+      try {
+        // Отправляем запрос на сервер для обновления проекта
+        const response = await api.put(`/projects/${projectId}`, updatedData);
+
+        // Находим проект в локальном состоянии и обновляем его данные
+        const projectIndex = this.projects.findIndex((project) => project.id === projectId);
+        if (projectIndex !== -1) {
+          this.projects[projectIndex] = {
+            ...this.projects[projectIndex],
+            ...this.mapProjectFromServer(response.data),
+            departmentId: updatedData.departmentId || null, // Убедитесь, что departmentId обновляется
+          };
+        }
+      } catch (error) {
+        console.error('Ошибка обновления проекта:', error);
+        throw error;
+      }
+    },
+
+    // Удаление проекта
+    async deleteProject(projectId) {
+      try {
+        // Отправляем запрос на сервер для удаления проекта
+        await api.delete(`/projects/${projectId}`);
+
+        // Удаляем проект из локального состояния
+        this.projects = this.projects.filter((project) => project.id !== projectId);
+      } catch (error) {
+        console.error('Ошибка удаления проекта:', error);
+        throw error;
+      }
+    },
+    
+
+    // Сохранение проекта
+    async saveProject(projectId) {
+      const project = this.getProjectById(projectId);
+      if (!project) return;
+
+      const requestData = {
+        blocks: project.blocks.map((block) => ({
+          id: block.id,
+          label: block.label,
+          color: block.color,
+          type: block.type,
+          order: block.order,
+        })),
+        tasks: project.tableRows.map((row) => ({
+          id: row.id,
+          parentId: row.parentId,
+          order: row.order,
+          status: row.status,
+          cells: Object.fromEntries(
+            Object.entries(row.cells).map(([blockId, cellData]) => {
+              return [blockId, { value: cellData.value, type: cellData.type || 'text' }];
+            })
+          ),
+        })),
+      };
+
+      try {
+        await api.put(`/projects/${projectId}/save`, requestData);
+      } catch (error) {
+        console.error('Ошибка сохранения проекта:', error);
+        throw error;
+      }
+    },
+
     // Добавление нового блока
     addBlock(projectId, newBlock) {
       const project = this.getProjectById(projectId);
       if (project) {
-        project.blocks.push({
-          id: uuidv4(),
-          ...newBlock,
-        });
+        project.blocks.push({ ...newBlock, id: Date.now().toString() });
       }
+    },
+    
+    // Удаление блока
+    deleteBlock(projectId, blockId) {
+      const project = this.getProjectById(projectId);
+      if (!project) return;
+
+      // Удаляем блок из массива blocks
+      project.blocks = project.blocks.filter((block) => block.id !== blockId);
+
+      // Удаляем блок из workspaceOrder, если он там есть
+      project.workspaceOrder = project.workspaceOrder.filter((id) => id !== blockId);
+
+      // Удаляем ячейки, связанные с этим блоком, из всех строк
+      project.tableRows.forEach((row) => {
+        delete row.cells[blockId];
+      });
     },
 
     // Перемещение блока в рабочую зону
@@ -128,7 +158,29 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    // Синхронизация ячеек для блока
+    // Перемещение блока обратно в сайдбар
+    moveBlockToSidebar(projectId, blockId) {
+      const project = this.getProjectById(projectId);
+      if (!project) return;
+
+      project.workspaceOrder = project.workspaceOrder.filter((id) => id !== blockId);
+      project.tableRows.forEach((row) => {
+        delete row.cells[blockId];
+      });
+    },
+    updateTableHeaders(projectId, newHeaders) {
+      const project = this.getProjectById(projectId);
+      if (project) {
+        // Обновляем порядок заголовков
+        project.workspaceOrder = newHeaders.map((header) => header.id);
+
+        // Синхронизируем ячейки для новых блоков
+        newHeaders.forEach((header) => {
+          this.syncCellsForBlock(projectId, header.id);
+        });
+      }
+    },
+
     syncCellsForBlock(projectId, blockId) {
       const project = this.getProjectById(projectId);
       if (!project) return;
@@ -136,48 +188,48 @@ export const useProjectStore = defineStore('project', {
       const block = project.blocks.find((b) => b.id === blockId);
       if (!block) return;
 
+      // Для каждой строки таблицы добавляем ячейку для нового блока
       project.tableRows.forEach((row) => {
         if (!row.cells[blockId]) {
           row.cells[blockId] =
             block.type === 'file'
-              ? reactive({ type: 'Нет', file: null })
-              : '';
+              ? { type: 'Нет', file: null } // Для файлов
+              : ''; // Для других типов
         }
       });
     },
 
-    // Перемещение блока обратно в сайдбар
-    moveBlockToSidebar(projectId, blockId) {
+    updateSidebarItems(projectId, newSidebarItems) {
       const project = this.getProjectById(projectId);
       if (project) {
+        // Обновляем порядок элементов в сайдбаре
+        const sidebarIds = newSidebarItems.map((item) => item.id);
+
+        // Удаляем блоки из рабочей зоны, если они были перемещены в сайдбар
         project.workspaceOrder = project.workspaceOrder.filter(
-          (id) => id !== blockId
+          (id) => !sidebarIds.includes(id)
         );
-        project.tableRows.forEach((row) => {
-          delete row.cells[blockId];
-        });
       }
     },
 
-    // Создать строку
+    // Создать строку в таблице
     addRow(projectId) {
       const project = this.getProjectById(projectId);
       if (!project) return;
-    
-      const newRow = reactive({
-        id: uuidv4(),
-        cells: [], // Массив ячеек
+
+      const newRow = {
+        id: Date.now().toString(),
+        cells: Object.fromEntries(
+          this.getTableHeaders(projectId).map((header) => [
+            header.id,
+            { value: '', type: header.type || 'text' },
+          ])
+        ),
         status: 'не сдано',
-      });
-    
-      this.getTableHeaders(projectId).forEach((header) => {
-        newRow.cells.push({
-          blockId: header.id,
-          value: header.type === 'file' ? null : '', // Значение по умолчанию
-          type: header.type || 'text', // Тип ячейки
-        });
-      });
-    
+      };
+
+      console.log('Новая строка:', newRow);
+
       project.tableRows.push(newRow);
     },
 
@@ -185,68 +237,18 @@ export const useProjectStore = defineStore('project', {
     async deleteRow(taskId) {
       try {
         await api.delete('/tasks', { data: { taskId } });
-        this.loadProjects(); // Обновляем список проектов
+        this.projects.forEach((project) => {
+          project.tableRows = project.tableRows.filter((row) => row.id !== taskId);
+        });
       } catch (error) {
         console.error('Ошибка удаления строки:', error);
-      }
-    },
-
-    // Метод для маппинга данных с сервера
-    mapProjectFromServer(project) {
-      return reactive({
-        id: project.id.toString(),
-        name: project.name,
-        blocks: project.blocks?.map((block) => ({
-          id: block.id,
-          label: block.label || '',
-          type: block.type || 'text',
-          color: block.color || '#f0f0f0',
-        })) || [],
-        workspaceOrder: project.workspaceOrder || [],
-        tableRows: reactive(
-          project.tasks?.map((task) => ({
-            id: task.id.toString(),
-            parentId: task.parentId,
-            order: task.order,
-            status: task.status,
-            cells: reactive(task.cells || {}), // Применяем объект cells
-          })) || []
-        ),
-      });
-    },
-
-    // Обновление порядка заголовков таблицы
-    updateTableHeaders(projectId, newHeaders) {
-      const project = this.getProjectById(projectId);
-      if (project) {
-        const newOrder = newHeaders.map((h) => h.id);
-        project.workspaceOrder = newOrder;
-
-        // Синхронизируем ячейки для новых блоков
-        const addedBlocks = newOrder.filter((id) => !project.workspaceOrder.includes(id));
-        addedBlocks.forEach((blockId) => {
-          this.syncCellsForBlock(projectId, blockId);
-        });
-      }
-    },
-
-    // Обновление элементов сайдбара
-    updateSidebarItems(projectId, newSidebarItems) {
-      const project = this.getProjectById(projectId);
-      if (project) {
-        const sidebarIds = newSidebarItems.map((item) => item.id);
-        project.workspaceOrder = project.workspaceOrder.filter(
-          (id) => !sidebarIds.includes(id)
-        );
       }
     },
 
     // Обновление статуса задачи
     async updateTaskStatus(taskId, newStatus) {
       try {
-        const response = await api.put(`/tasks/${taskId}`, { newStatus });
-        console.log(response);
-
+        await api.put(`/tasks/${taskId}`, { newStatus });
         this.projects.forEach((project) => {
           const task = project.tableRows.find((row) => row.id === taskId);
           if (task) task.status = newStatus;
@@ -254,6 +256,43 @@ export const useProjectStore = defineStore('project', {
       } catch (error) {
         console.error('Ошибка обновления статуса задачи:', error);
       }
+    },
+
+    // Метод для маппинга данных с сервера
+    mapProjectFromServer(project) {
+      return {
+        id: project.id.toString(),
+        name: project.name,
+        departmentId: project.departmentId || null, // Добавьте это поле
+        blocks: project.blocks || [],
+        workspaceOrder: this.initializeWorkspaceOrder(project.blocks),
+        tableRows: project.tasks?.map((task) => ({
+          id: task.id.toString(),
+          parentId: task.parentId,
+          order: task.order,
+          status: task.status,
+          cells: Object.fromEntries(
+            Object.entries(task.cells || {}).map(([blockId, cellData]) => {
+              // Преобразуем строки обратно в числа, если тип данных — число
+              const value = cellData.type === 'number' ? parseInt(cellData.value) : cellData.value;
+              return [blockId, { value: value, type: cellData.type || 'text' }];
+            })
+          ),
+        })) || [],
+      };
+    },
+
+    // Метод для инициализации workspaceOrder на основе order блоков
+    initializeWorkspaceOrder(blocks) {
+      if (!blocks || blocks.length === 0) return [];
+
+      // Фильтруем блоки, у которых есть значение order (не null)
+      const orderedBlocks = blocks
+        .filter((block) => block.order !== null && block.order >= 0)
+        .sort((a, b) => a.order - b.order); // Сортируем по значению order
+
+      // Возвращаем массив ID блоков в порядке их order
+      return orderedBlocks.map((block) => block.id);
     },
   },
 });
