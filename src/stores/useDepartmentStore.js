@@ -91,5 +91,14 @@ export const useDepartmentStore = defineStore('department', {
         throw error;
       }
     },
+
+    // Получение пользователя по ID
+    getUserById(userId) {
+      for (const department of this.departments) {
+        const user = department.users.find((u) => u.id === userId);
+        if (user) return user;
+      }
+      return null; // Если пользователь не найден
+    },
   },
 });

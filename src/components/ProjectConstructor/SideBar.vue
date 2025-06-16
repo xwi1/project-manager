@@ -13,6 +13,7 @@
       <select v-model="newBlock.type" class="form-control mb-2">
         <option value="text">Текст</option>
         <option value="date">Дата</option>
+        <option value="control">Контроль</option>
       </select>
       <input v-model="newBlock.color" type="color" class="form-control mb-2" />
       <button @click="addNewBlock" class="btn btn-primary w-100">Добавить блок</button>
@@ -66,6 +67,7 @@ const newBlock = ref({
   label: '',
   type: 'text',
   color: '#f0f0f0',
+  order: null
 });
 
 // Сообщение об ошибке

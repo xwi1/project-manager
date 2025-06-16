@@ -47,25 +47,19 @@
             class="form-control h-100 w-100 border-0"
             placeholder="Введите текст"
           />
-          <!-- <input
-            v-if="header.type === 'number'"
-            v-model="row.cells[header.id].value"
-            type="number"
-            class="form-control h-100 w-100 border-0"
-            placeholder="Введите число"
-          /> -->
           <input
             v-if="header.type === 'date'"
             v-model="row.cells[header.id].value"
             type="date"
             class="form-control h-100 w-100 border-0"
           />
-          <!-- <input
-            v-if="header.type === 'file'"
-            type="file"
-            class="form-control h-100 w-100 border-0"
-            @change="handleFileUpload($event, row, header)"
-          /> -->
+          <button
+            v-if="header.type === 'control'"
+            @click="openControlModal(row.cells[header.id])"
+            class="btn btn-secondary w-100 h-100"
+          >
+            {{ row.cells[header.id].value || 'Назначить' }}
+          </button>
         </div>
 
         <!-- Кнопка удаления строки -->
@@ -86,14 +80,87 @@
     >
       Добавить строку
     </button>
+
+    <!-- Модальное окно для выбора ответственного -->
+    <div v-if="isControlModalOpen" class="modal-overlay">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <!-- Заголовок модального окна -->
+          <div class="modal-header d-flex justify-content-between align-items-center">
+            <h5 class="modal-title">Выбор ответственного</h5>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Close"
+              @click="closeControlModal"
+            ></button>
+          </div>
+
+          <!-- Тело модального окна -->
+          <div class="modal-body">
+            <!-- Поле поиска -->
+            <div class="input-group mb-3">
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Поиск пользователей..."
+                class="form-control"
+              />
+            </div>
+
+            <!-- Список пользователей -->
+            <ul class="list-group">
+              <li
+                v-for="user in filteredUsers"
+                :key="user.id"
+                class="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <!-- Отображение email пользователя -->
+                <span>{{ user.email }}</span>
+
+                <!-- Проверка, назначен ли пользователь ответственным -->
+                <template v-if="selectedCell.assignedUser === user.id">
+                  <button
+                    @click="unassignUser()"
+                    class="btn btn-sm btn-danger"
+                  >
+                    Отменить
+                  </button>
+                </template>
+                <template v-else>
+                  <button
+                    @click="assignUser(user)"
+                    class="btn btn-sm btn-primary"
+                  >
+                    Выбрать
+                  </button>
+                </template>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Нижний колонтитул модального окна -->
+          <div class="modal-footer d-flex flex-column align-items-center">
+            <button
+              type="button"
+              class="btn btn-secondary w-100"
+              @click="closeControlModal"
+            >
+              Отменить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { defineProps } from 'vue';
 import vuedraggable from 'vuedraggable';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useDepartmentStore } from '@/stores/useDepartmentStore';
 
 const props = defineProps({
   projectId: {
@@ -103,6 +170,15 @@ const props = defineProps({
 });
 
 const projectStore = useProjectStore();
+const departmentStore = useDepartmentStore();
+
+onMounted(async () => {
+  await departmentStore.loadDepartments(); // Загружаем отделы
+});
+
+const isControlModalOpen = ref(false); // Состояние модального окна
+const selectedCell = ref(null); // Выбранная ячейка
+const searchQuery = ref(''); // Поисковый запрос
 
 // Заголовки рабочей зоны
 const workspaceHeaders = computed({
@@ -122,20 +198,6 @@ const addRow = () => {
 const handleDeleteRow = (taskId) => {
   projectStore.deleteRow(taskId);
 };
-
-// Обработка загрузки файла
-// const handleFileUpload = (event, row, header) => {
-//   const file = event.target.files[0];
-//   if (!file) return;
-
-//   // Инициализируем ячейку, если её нет
-//   if (!row.cells[header.id]) {
-//     row.cells[header.id] = null;
-//   }
-
-//   // Сохраняем файл в ячейке
-//   row.cells[header.id] = file;
-// };
 
 // Обработчик изменения порядка заголовков
 const onDragEnd = (event) => {
@@ -164,6 +226,12 @@ const onDragEnd = (event) => {
 
     // Перемещаем блок в сайдбар
     projectStore.moveBlockToSidebar(props.projectId, blockId);
+
+    // Проверяем, остались ли блоки в рабочей зоне
+    if (workspaceHeaders.value.length === 0) {
+      // Если блоков нет, очищаем строки таблицы
+      tableRows.value = [];
+    }
   }
 
   // Обновляем порядок блоков
@@ -178,6 +246,85 @@ const updateBlockOrder = () => {
 
   // Обновляем данные в хранилище
   projectStore.updateTableHeaders(props.projectId, workspaceHeaders.value);
+};
+
+// Открытие модального окна
+const openControlModal = (cell) => {
+  selectedCell.value = cell;
+  isControlModalOpen.value = true;
+};
+
+// Закрытие модального окна
+const closeControlModal = () => {
+  selectedCell.value = null;
+  isControlModalOpen.value = false;
+};
+
+// Фильтрация пользователей по поисковому запросу
+const filteredUsers = computed(() => {
+  const project = projectStore.getProjectById(props.projectId);
+  if (!project?.departmentId) return [];
+
+  const department = departmentStore.departments.find(
+    (d) => d.id === project.departmentId
+  );
+  if (!department) return [];
+
+  const users = department.users || [];
+  if (!searchQuery.value.trim()) return users;
+
+  const query = searchQuery.value.toLowerCase();
+  return users.filter((user) =>
+    user.email.toLowerCase().includes(query)
+  );
+});
+
+// Назначение пользователя
+const assignUser = async (user) => {
+  if (selectedCell.value) {
+    // Находим строку, содержащую выбранную ячейку
+    const row = projectStore.projects
+      .flatMap((project) => project.tableRows)
+      .find((row) => Object.values(row.cells).includes(selectedCell.value));
+
+    if (row) {
+      // Обновляем данные ячейки
+      selectedCell.value.value = user.email;
+      selectedCell.value.assignedUser = user.id;
+
+      // Меняем статус задачи на "в работе"
+      if (row.status === 'not_assigned') {
+        row.status = 'in_progress';
+      }
+
+      alert('Пользователь успешно назначен.');
+    }
+
+    closeControlModal();
+  }
+};
+
+// Отмена назначения пользователя
+const unassignUser = async () => {
+  if (selectedCell.value) {
+    // Находим строку, содержащую выбранную ячейку
+    const row = projectStore.projects
+      .flatMap((project) => project.tableRows)
+      .find((row) => Object.values(row.cells).includes(selectedCell.value));
+
+    if (row) {
+      // Очищаем данные ячейки
+      selectedCell.value.value = '';
+      selectedCell.value.assignedUser = null;
+
+      // Меняем статус задачи на "не назначена"
+      row.status = 'not_assigned';
+
+      alert('Назначение пользователя отменено.');
+    }
+
+    closeControlModal();
+  }
 };
 </script>
 
@@ -278,5 +425,52 @@ const updateBlockOrder = () => {
 .btn-danger {
   background-color: #dc3545;
   border-color: #dc3545;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Полупрозрачный фон */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.modal-dialog {
+  max-width: 500px;
+  width: 100%;
+}
+
+.modal-content {
+  background-color: white; /* Белый фон для содержимого модального окна */
+  border-radius: 8px; /* Закругление углов */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Тень для эффекта возвышения */
+  padding: 1rem; /* Внутренние отступы */
+}
+
+.modal-header {
+  border-bottom: 1px solid #dee2e6; /* Линия под заголовком */
+  padding-bottom: 1rem;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.modal-body {
+  padding: 1rem 0;
+}
+
+.modal-footer {
+  border-top: 1px solid #dee2e6; /* Линия над футером */
+  padding-top: 1rem;
+  display: flex;
+  justify-content: flex-end; /* Кнопки справа */
+  gap: 0.5rem; /* Расстояние между кнопками */
 }
 </style>

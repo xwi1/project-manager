@@ -16,7 +16,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           <!-- Ссылка на страницу проектов -->
-          <li class="nav-item">
+          <li v-if="authStore.isAdmin" class="nav-item">
             <router-link to="/projects" class="nav-link">Проекты</router-link>
           </li>
 
@@ -25,14 +25,29 @@
             <router-link to="/reports" class="nav-link">Отчёты</router-link>
           </li>
 
+          <!-- Ссылка на страницу управления задачами (только для менеджеров) -->
+          <li v-if="authStore.isManager" class="nav-item">
+            <router-link to="/manager-tasks" class="nav-link">Управление задачами</router-link>
+          </li>
+
           <!-- Ссылка на страницу отделов (только для администраторов) -->
           <li v-if="authStore.isAdmin" class="nav-item">
             <router-link to="/departments" class="nav-link">Отделы</router-link>
           </li>
+
+          <!-- Ссылка на страницу пользователей (только для администраторов) -->
+          <li v-if="authStore.isAdmin" class="nav-item">
+            <router-link to="/users" class="nav-link">Пользователи</router-link>
+          </li>
+
+          <!-- Ссылка на страницу с задачами (для всех) -->
+          <li v-if="authStore.isEmployee" class="nav-item">
+            <router-link to="/tasks" class="nav-link">Задачи</router-link>
+          </li>
         </ul>
 
         <!-- Кнопка выхода -->
-        <button @click="handleLogout" class="btn btn-outline-danger">
+        <button v-if="authStore.isAuthenticated" @click="handleLogout" class="btn btn-outline-danger">
           Выйти
         </button>
       </div>

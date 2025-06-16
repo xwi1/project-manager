@@ -5,6 +5,10 @@ import ReportsPage from '@/pages/ReportsPage.vue';
 import LoginPage from '@/pages/LoginPage.vue';
 import RegisterPage from '@/pages/RegisterPage.vue';
 import DepartmentsPage from '@/pages/DepartmentsPage.vue';
+import UsersPage from '@/pages/UsersPage.vue';
+import TasksPage from '@/pages/TasksPage.vue';
+import ManagerTasksPage from '@/pages/ManagerTasksPage.vue';
+
 
 const routes = [
   { path: '/', redirect: '/projects' },
@@ -14,6 +18,9 @@ const routes = [
   { path: '/login', component: LoginPage },
   { path: '/register', component: RegisterPage },
   { path: '/departments', component: DepartmentsPage },
+  { path: '/users', component: UsersPage },
+  { path: '/tasks', component: TasksPage },
+  { path: '/manager-tasks', component: ManagerTasksPage },
 ];
 
 const router = createRouter({

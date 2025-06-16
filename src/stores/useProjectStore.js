@@ -9,7 +9,11 @@ export const useProjectStore = defineStore('project', {
   getters: {
     // Получить проект по ID
     getProjectById: (state) => (projectId) => {
-      return state.projects.find((project) => project.id === projectId);
+      const project = state.projects.find((p) => p.id === projectId);
+      if (!project) {
+        console.error(`Проект с ID ${projectId} не найден`);
+      }
+      return project;
     },
 
     // Получить блоки, которые находятся в сайдбаре
@@ -108,7 +112,14 @@ export const useProjectStore = defineStore('project', {
           status: row.status,
           cells: Object.fromEntries(
             Object.entries(row.cells).map(([blockId, cellData]) => {
-              return [blockId, { value: cellData.value, type: cellData.type || 'text' }];
+              return [
+                blockId,
+                {
+                  value: cellData.value,
+                  type: cellData.type || 'text',
+                  assignedUser: cellData.assignedUser || null, // Добавляем назначенного пользователя
+                },
+              ];
             })
           ),
         })),
@@ -163,11 +174,27 @@ export const useProjectStore = defineStore('project', {
       const project = this.getProjectById(projectId);
       if (!project) return;
 
+      // Находим блок по ID
+      const block = project.blocks.find((b) => b.id === blockId);
+      if (block) {
+        block.order = null; // Устанавливаем order в null
+      }
+
+      // Удаляем блок из workspaceOrder
       project.workspaceOrder = project.workspaceOrder.filter((id) => id !== blockId);
+
+      // Удаляем ячейки, связанные с этим блоком, из всех строк
       project.tableRows.forEach((row) => {
         delete row.cells[blockId];
       });
+
+      // Проверяем, остались ли блоки в рабочей зоне
+      if (project.workspaceOrder.length === 0) {
+        // Если блоков нет, очищаем строки таблицы
+        project.tableRows = [];
+      }
     },
+    
     updateTableHeaders(projectId, newHeaders) {
       const project = this.getProjectById(projectId);
       if (project) {
@@ -225,7 +252,7 @@ export const useProjectStore = defineStore('project', {
             { value: '', type: header.type || 'text' },
           ])
         ),
-        status: 'не сдано',
+        status: 'not_assigned',
       };
 
       console.log('Новая строка:', newRow);
@@ -236,7 +263,6 @@ export const useProjectStore = defineStore('project', {
     // Удаление строки из таблицы
     async deleteRow(taskId) {
       try {
-        await api.delete('/tasks', { data: { taskId } });
         this.projects.forEach((project) => {
           project.tableRows = project.tableRows.filter((row) => row.id !== taskId);
         });
@@ -248,13 +274,20 @@ export const useProjectStore = defineStore('project', {
     // Обновление статуса задачи
     async updateTaskStatus(taskId, newStatus) {
       try {
-        await api.put(`/tasks/${taskId}`, { newStatus });
+        const response = await api.put(`/tasks/${taskId}`, { newStatus });
+        const updatedTask = response.data;
+
+        // Обновляем локальное состояние
         this.projects.forEach((project) => {
-          const task = project.tableRows.find((row) => row.id === taskId);
-          if (task) task.status = newStatus;
+          project.tableRows.forEach((row) => {
+            if (row.id === taskId) {
+              row.status = updatedTask.status;
+            }
+          });
         });
       } catch (error) {
         console.error('Ошибка обновления статуса задачи:', error);
+        throw error;
       }
     },
 
@@ -263,7 +296,7 @@ export const useProjectStore = defineStore('project', {
       return {
         id: project.id.toString(),
         name: project.name,
-        departmentId: project.departmentId || null, // Добавьте это поле
+        departmentId: project.departmentId || null,
         blocks: project.blocks || [],
         workspaceOrder: this.initializeWorkspaceOrder(project.blocks),
         tableRows: project.tasks?.map((task) => ({
@@ -273,9 +306,15 @@ export const useProjectStore = defineStore('project', {
           status: task.status,
           cells: Object.fromEntries(
             Object.entries(task.cells || {}).map(([blockId, cellData]) => {
-              // Преобразуем строки обратно в числа, если тип данных — число
               const value = cellData.type === 'number' ? parseInt(cellData.value) : cellData.value;
-              return [blockId, { value: value, type: cellData.type || 'text' }];
+              return [
+                blockId,
+                {
+                  value: value,
+                  type: cellData.type || 'text',
+                  assignedUser: cellData.assignedUser
+                },
+              ];
             })
           ),
         })) || [],
