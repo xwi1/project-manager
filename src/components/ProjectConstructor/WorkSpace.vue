@@ -52,6 +52,7 @@
             v-model="row.cells[header.id].value"
             type="date"
             class="form-control h-100 w-100 border-0"
+            :min="currentDate"
           />
           <button
             v-if="header.type === 'control'"
@@ -115,8 +116,8 @@
                 :key="user.id"
                 class="list-group-item d-flex justify-content-between align-items-center"
               >
-                <!-- Отображение email пользователя -->
-                <span>{{ user.email }}</span>
+                <!-- Отображение имени пользователя -->
+                <span>{{ user.name }}</span>
 
                 <!-- Проверка, назначен ли пользователь ответственным -->
                 <template v-if="selectedCell.assignedUser === user.id">
@@ -174,6 +175,15 @@ const departmentStore = useDepartmentStore();
 
 onMounted(async () => {
   await departmentStore.loadDepartments(); // Загружаем отделы
+});
+
+// Текущая дата в формате YYYY-MM-DD
+const currentDate = computed(() => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 });
 
 const isControlModalOpen = ref(false); // Состояние модального окна
@@ -275,7 +285,7 @@ const filteredUsers = computed(() => {
 
   const query = searchQuery.value.toLowerCase();
   return users.filter((user) =>
-    user.email.toLowerCase().includes(query)
+    user.name.toLowerCase().includes(query)
   );
 });
 
@@ -289,7 +299,7 @@ const assignUser = async (user) => {
 
     if (row) {
       // Обновляем данные ячейки
-      selectedCell.value.value = user.email;
+      selectedCell.value.value = user.name;
       selectedCell.value.assignedUser = user.id;
 
       // Меняем статус задачи на "в работе"

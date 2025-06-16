@@ -44,8 +44,7 @@
           <!-- Дополнительная информация -->
           <small class="text-muted mt-1">
             Задачи: {{ getCompletedTasksCount(project.tableRows) }}/{{ project.tableRows.length }} |
-            Блоки: {{ project.blocks.length }} |
-            Создан: {{ formatDate(project.createdAt) }}
+            Блоки: {{ project.blocks.length }}
           </small>
         </router-link>
 
@@ -338,13 +337,7 @@ const getDepartmentName = (departmentId) => {
 // Получить количество выполненных задач
 const getCompletedTasksCount = (tasks) => {
   if (!Array.isArray(tasks)) return 0;
-  return tasks.filter((task) => task.status === 'завершено').length;
-};
-
-// Форматировать дату
-const formatDate = (dateString) => {
-  const date = new Date(dateString);
-  return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`;
+  return tasks.filter((task) => task.status === 'completed').length;
 };
 </script>
 

@@ -21,7 +21,7 @@
         @click="openUserModal(user)"
       >
         <div>
-          <strong>{{ user.email }}</strong>
+          <strong>{{ user.name }}</strong>
           <span v-if="user.departmentId" class="badge bg-info ms-2">{{ getDepartmentName(user.departmentId) }}</span>
           <span v-else class="badge bg-secondary ms-2">Нет отдела</span>
         </div>
@@ -48,6 +48,17 @@
             ></button>
           </div>
           <div class="modal-body">
+            <!-- Имя -->
+            <div class="mb-3">
+              <label for="nameInput" class="form-label">Имя</label>
+              <input
+                v-model="selectedUser.name"
+                id="nameInput"
+                class="form-control"
+                required
+              />
+            </div>
+
             <!-- Email -->
             <div class="mb-3">
               <label for="emailInput" class="form-label">Email</label>
@@ -58,28 +69,6 @@
                 class="form-control"
                 required
               />
-            </div>
-
-            <!-- Пароль -->
-            <div class="mb-3">
-              <label for="passwordInput" class="form-label">Пароль</label>
-              <div class="input-group">
-                <input
-                  v-model="selectedUser.password"
-                  :type="isPasswordVisible ? 'text' : 'password'"
-                  id="passwordInput"
-                  class="form-control"
-                  placeholder="Оставьте пустым, чтобы не менять пароль"
-                />
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  @click="isPasswordVisible = !isPasswordVisible"
-                >
-                  {{ isPasswordVisible ? 'Скрыть' : 'Показать' }}
-                </button>
-              </div>
-              <small class="text-muted">Оставьте поле пустым, если не хотите менять пароль.</small>
             </div>
 
             <!-- Отдел -->
@@ -161,7 +150,7 @@ const filteredUsers = computed(() => {
   }
   const query = searchQuery.value.toLowerCase();
   return userStore.users.filter((user) =>
-    user.email.toLowerCase().includes(query)
+    user.name.toLowerCase().includes(query)
   );
 });
 
@@ -171,14 +160,13 @@ const isUserModalOpen = ref(false);
 // Выбранный пользователь
 const selectedUser = ref({
   id: null,
+  name: '',
   email: '',
   password: '',
   departmentId: null,
   role: '', // Роль теперь одна
 });
 
-// Управление видимостью пароля
-const isPasswordVisible = ref(false);
 
 // Загрузка данных при монтировании
 onMounted(async () => {
@@ -195,6 +183,7 @@ onMounted(async () => {
 const openUserModal = (user) => {
   selectedUser.value = {
     id: user.id,
+    name: user.name,
     email: user.email,
     password: '', // Оставляем пустым для безопасности
     departmentId: user.departmentId,
@@ -208,6 +197,7 @@ const closeUserModal = () => {
   isUserModalOpen.value = false;
   selectedUser.value = {
     id: null,
+    name: '',
     email: '',
     password: '',
     departmentId: null,
@@ -219,6 +209,7 @@ const closeUserModal = () => {
 const saveUserChanges = async () => {
   try {
     await userStore.updateUser(selectedUser.value.id, {
+      name: selectedUser.value.name,
       email: selectedUser.value.email,
       password: selectedUser.value.password || undefined, // Если пароль пустой, не отправляем его
       departmentId: selectedUser.value.departmentId,

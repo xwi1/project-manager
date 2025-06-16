@@ -12,6 +12,7 @@ export const useUserStore = defineStore('user', {
         const response = await api.get('/users');
         this.users = response.data.map((user) => ({
           id: user.id,
+          name: user.name,
           email: user.email,
           departmentId: user.departmentId || null,
           roles: Array.isArray(user.roles) ? user.roles : [user.roles], // Преобразуем в массив

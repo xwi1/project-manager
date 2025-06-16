@@ -1,5 +1,15 @@
 <template>
   <form @submit.prevent="handleRegister" class="auth-form">
+     <div class="mb-3">
+      <label class="form-label">Имя</label>
+      <input
+        v-model="name"
+        class="form-control"
+        id="name"
+        placeholder="Введите ваше имя"
+        required
+      />
+    </div>
     <div class="mb-3">
       <label for="email" class="form-label">Email</label>
       <input
@@ -22,19 +32,6 @@
         required
       />
     </div>
-    <div class="mb-3">
-      <label for="role" class="form-label">Роль</label>
-      <select
-        v-model="role"
-        class="form-control"
-        id="role"
-        required
-      >
-        <option value="admin">Администратор</option>
-        <option value="manager">Менеджер</option>
-        <option value="employee">Сотрудник</option>
-      </select>
-    </div>
     <button type="submit" class="btn btn-primary w-100">Зарегистрироваться</button>
   </form>
 </template>
@@ -44,17 +41,18 @@ import { ref } from 'vue';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useRouter } from 'vue-router';
 
+const name = ref('')
 const email = ref('');
 const password = ref('');
-const role = ref('employee'); // По умолчанию роль "Сотрудник"
 const authStore = useAuthStore();
 const router = useRouter();
 
 const handleRegister = async () => {
   const userData = {
+    name: name.value,
     email: email.value,
     password: password.value, // Добавляем пароль
-    role: role.value
+    role: 'employee'
   };
 
   const result = await authStore.register(userData);

@@ -127,13 +127,13 @@
             <table class="table table-bordered">
               <thead>
                 <tr>
-                  <th>Email</th>
+                  <th>Имя</th>
                   <th>Роль</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="user in departmentUsers" :key="user.id">
-                  <td>{{ user.email }}</td>
+                  <td>{{ user.name }}</td>
                   <td>
                     <select v-model="user.role" class="form-select">
                       <option value="admin">Администратор</option>
@@ -199,7 +199,7 @@
                 :key="user.id"
                 class="list-group-item d-flex justify-content-between align-items-center"
               >
-                <span>{{ user.email }}</span>
+                <span>{{ user.name }}</span>
                 <button
                   @click="addUserToDepartment(user.id)"
                   class="btn btn-sm btn-primary"
@@ -313,7 +313,7 @@ const openSettingsModal = async (departmentId) => {
 
     departmentUsers.value = usersWithRoles.map((user) => ({
       ...user,
-      role: user.role || 'employee', // Устанавливаем роль по умолчанию
+      role: user.role, // Устанавливаем роль по умолчанию
     }));
   } catch (error) {
     console.error('Ошибка загрузки пользователей с ролями:', error);
@@ -392,7 +392,7 @@ const filteredUnassignedUsers = computed(() => {
     return unassignedUsers.value;
   }
   const query = userSearchQuery.value.toLowerCase();
-  return unassignedUsers.value.filter((user) => user.email.toLowerCase().includes(query));
+  return unassignedUsers.value.filter((user) => user.name.toLowerCase().includes(query));
 });
 
 // Добавление пользователя в отдел

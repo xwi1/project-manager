@@ -20,6 +20,7 @@ export const useAuthStore = defineStore('auth', {
 
         this.user = {
           id: response.data.id,
+          name: response.data.name,
           email: response.data.email,
           roles: response.data.roles || [], // Массив ролей
         };
@@ -38,6 +39,7 @@ export const useAuthStore = defineStore('auth', {
     async register(userData) {
       try {
         const response = await api.post('/auth/register', {
+          name: userData.name,
           email: userData.email,
           password: userData.password,
           roleNames: [userData.role], // Передаем массив ролей
@@ -45,6 +47,7 @@ export const useAuthStore = defineStore('auth', {
 
         this.user = {
           id: response.data.id,
+          name: response.data.name,
           email: response.data.email,
           roles: response.data.roles || [], // Массив ролей
         };
